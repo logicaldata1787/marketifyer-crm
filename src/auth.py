@@ -45,3 +45,26 @@ def users_exist() -> bool:
     with open(USERS_FILE, 'r') as f:
         users = json.load(f)
     return len(users) > 0
+
+def get_all_users() -> list:
+    if not os.path.exists(USERS_FILE):
+        return []
+    with open(USERS_FILE, 'r') as f:
+        users = json.load(f)
+    return list(users.keys())
+
+def delete_user(username: str) -> tuple[bool, str]:
+    if not os.path.exists(USERS_FILE):
+        return False, "Database missing."
+    with open(USERS_FILE, 'r') as f:
+        users = json.load(f)
+        
+    if username.lower() == "logicaldatasolution@gmail.com":
+        return False, "Cannot delete the Master Admin."
+        
+    if username in users:
+        del users[username]
+        with open(USERS_FILE, 'w') as f:
+            json.dump(users, f, indent=4)
+        return True, f"User {username} deleted."
+    return False, "User not found."
