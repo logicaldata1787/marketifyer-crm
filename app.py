@@ -27,10 +27,9 @@ if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 
 if not st.session_state['logged_in']:
-    import os
-    if os.path.exists("logo.png"):
-        st.image("logo.png", width=350)
-    else:
+    try:
+        st.image("https://raw.githubusercontent.com/logicaldata1787/marketifyer-crm/main/logo.png", width=350)
+    except:
         st.title("⚡ Marketifyer CRM")
     st.markdown("### Secure Access Portal")
     st.divider()
@@ -82,10 +81,9 @@ if not st.session_state['logged_in']:
 
 
 # ----------------- MAIN APP (CRM) -----------------
-import os
-if os.path.exists("logo.png"):
-    st.sidebar.image("logo.png", use_container_width=True)
-else:
+try:
+    st.sidebar.image("https://raw.githubusercontent.com/logicaldata1787/marketifyer-crm/main/logo.png", use_container_width=True)
+except:
     st.sidebar.title("⚡ Marketifyer")
 st.sidebar.markdown(f"Logged in as: **{st.session_state['username']}**")
 if st.sidebar.button("Logout"):
