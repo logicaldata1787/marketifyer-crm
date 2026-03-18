@@ -7,7 +7,7 @@ from src.lead_researcher import LeadResearcher
 from src.outreach_manager import OutreachManager
 from src.email_verifier import verify_email
 from src.mailbox_store import load_mailboxes, save_mailbox, delete_mailbox
-from src.campaign_store import load_campaigns, save_campaign, delete_campaign
+from src.campaign_store import load_campaigns, save_campaign, delete_campaign, load_all_campaigns_admin
 import src.auth as auth
 
 st.set_page_config(page_title="Marketifyer CRM", layout="wide", page_icon="⚡")
@@ -27,7 +27,11 @@ if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 
 if not st.session_state['logged_in']:
-    st.title("⚡ Marketifyer CRM")
+    import os
+    if os.path.exists("logo.png"):
+        st.image("logo.png", width=350)
+    else:
+        st.title("⚡ Marketifyer CRM")
     st.markdown("### Secure Access Portal")
     st.divider()
     
@@ -78,7 +82,11 @@ if not st.session_state['logged_in']:
 
 
 # ----------------- MAIN APP (CRM) -----------------
-st.sidebar.title("⚡ Marketifyer")
+import os
+if os.path.exists("logo.png"):
+    st.sidebar.image("logo.png", use_container_width=True)
+else:
+    st.sidebar.title("⚡ Marketifyer")
 st.sidebar.markdown(f"Logged in as: **{st.session_state['username']}**")
 if st.sidebar.button("Logout"):
     st.session_state['logged_in'] = False
@@ -112,6 +120,25 @@ if st.session_state['username'].lower() == "logicaldatasolution@gmail.com":
                     s, m = auth.delete_user(u)
                     if s: st.rerun()
                     else: st.error(m)
+                    
+        st.divider()
+        st.markdown("### 🌍 Global Campaign Analytics")
+        all_camps = load_all_campaigns_admin()
+        if all_camps:
+            tot_sent = sum(c.get('sent', 0) for c in all_camps)
+            tot_opened = sum(c.get('opened', 0) for c in all_camps)
+            tot_replied = sum(c.get('replied', 0) for c in all_camps)
+            
+            mc1, mc2, mc3 = st.columns(3)
+            mc1.metric("Platform Sent", tot_sent)
+            mc2.metric("Platform Opens", tot_opened)
+            mc3.metric("Platform Replies", tot_replied)
+            
+            st.write("**Recent User Campaigns:**")
+            for c in reversed(all_camps[-15:]):
+                st.caption(f"👤 **{c.get('owner')}** ➔ '{c.get('name')}' ({c.get('sent')} sent | {c.get('replied', 0)} replied)")
+        else:
+            st.info("No campaigns sent across the platform yet.")
 
 st.sidebar.divider()
 
