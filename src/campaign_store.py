@@ -5,6 +5,15 @@ from typing import List, Dict
 
 CAMPAIGNS_FILE = "campaigns.json"
 
+def load_all_campaigns_admin() -> List[Dict]:
+    if not os.path.exists(CAMPAIGNS_FILE):
+        return []
+    try:
+        with open(CAMPAIGNS_FILE, 'r') as f:
+            return json.load(f)
+    except Exception:
+        return []
+
 def load_campaigns(username: str) -> List[Dict]:
     if not os.path.exists(CAMPAIGNS_FILE):
         return []
