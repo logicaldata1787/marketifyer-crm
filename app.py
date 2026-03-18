@@ -86,17 +86,32 @@ if st.sidebar.button("Logout"):
 
 st.sidebar.divider()
 
-with st.sidebar.expander("⚙️ Admin Settings"):
-    st.markdown("Create a Sub-Account:")
-    nu = st.text_input("New Username", key="admin_nu")
-    np = st.text_input("New Password", type="password", key="admin_np")
-    if st.button("Create Account"):
-        if not nu or not np:
-            st.error("Fill all fields.")
-        else:
-            s, m = auth.create_user(nu, np)
-            if s: st.success(f"User '{nu}' created!")
-            else: st.error(m)
+if st.session_state['username'].lower() == "logicaldatasolution@gmail.com":
+    with st.sidebar.expander("👑 Master Admin Panel"):
+        st.markdown("### Manage Roles")
+        users_list = auth.get_all_users()
+        st.write(f"Total Users: **{len(users_list)}**")
+        
+        nu = st.text_input("New Username (Email)", key="admin_nu")
+        np = st.text_input("New Password", type="password", key="admin_np")
+        if st.button("Create Extra Account"):
+            if not nu or not np:
+                st.error("Fill all fields.")
+            else:
+                s, m = auth.create_user(nu, np)
+                if s: st.success("User created!"); time.sleep(1); st.rerun()
+                else: st.error(m)
+                
+        st.divider()
+        st.markdown("### Active Profiles")
+        for u in users_list:
+            if u.lower() != "logicaldatasolution@gmail.com":
+                c1, c2 = st.columns([3, 1])
+                c1.write(f"👤 `{u}`")
+                if c2.button("❌", key=f"delu_{u}"):
+                    s, m = auth.delete_user(u)
+                    if s: st.rerun()
+                    else: st.error(m)
 
 st.sidebar.divider()
 
