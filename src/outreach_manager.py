@@ -47,7 +47,7 @@ class OutreachManager:
         msg.attach(MIMEText(html_content, 'html'))
         return msg
 
-    def send_campaign(self, contacts_df: pd.DataFrame, subject_template: str, body_template: str, reply_to: str = "", min_delay: int = 60, max_delay: int = 300, campaign_id: str = None, progress_callback=None) -> Dict[str, int]:
+    def send_campaign(self, contacts_df: pd.DataFrame, subject_template: str, body_template: str, reply_to: str = "", min_delay: int = 60, max_delay: int = 300, campaign_id: str = None, include_unsubscribe: bool = True, progress_callback=None) -> Dict[str, int]:
         """
         Sends emails one by one with a random delay (between min_delay and max_delay in seconds)
         to simulate human sending behavior.
@@ -103,6 +103,15 @@ class OutreachManager:
                         body = re.sub(r'</body>', f'{pixel_html}</body>', body, flags=re.IGNORECASE)
                     else:
                         body += pixel_html
+                        
+                # INJECT UNSUBSCRIBE LINK
+                if include_unsubscribe:
+                    unsub_url = f"https://marketifyer.streamlit.app/?action=unsub&email={email}"
+                    unsub_html = f'<br><br><p style="font-size: 11px; color: #888;">If you wish to opt out of future communications, please <a href="{unsub_url}">unsubscribe here</a>.</p>'
+                    if "</body>" in body.lower():
+                        body = re.sub(r'</body>', f'{unsub_html}</body>', body, flags=re.IGNORECASE)
+                    else:
+                        body += unsub_html
                 
                 msg = self._create_message(email, subject, body, reply_to)
                 
