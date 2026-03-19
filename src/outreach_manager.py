@@ -102,6 +102,9 @@ class OutreachManager:
                 subject = current_subject_template.replace("{{name}}", str(name)).replace("{{company}}", str(company))
                 body = current_body_template.replace("{{name}}", str(name)).replace("{{company}}", str(company))
                 
+                # Format literal text linebreaks into HTML breaks so emails do not render as a single generic string
+                body = body.replace("\n", "<br>")
+                
                 # INJECT TRUE OPEN TRACKING PIXEL IF LIVE CONFIG
                 if campaign_id:
                     pixel_url = f"https://marketifyer.streamlit.app/?action=open&cid={campaign_id}"
