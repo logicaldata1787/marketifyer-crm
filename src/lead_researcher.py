@@ -60,7 +60,7 @@ class LeadResearcher:
                     "model": "gpt-4o-mini",
                     "temperature": 0.0,
                     "messages": [
-                        {"role": "system", "content": "You are a precise B2B Entity Extractor. I will provide scraped web search text regarding a tradeshow or event. Your STRICT job is to identify the EXACT real names of the exhibiting/sponsoring companies. IGNORE all generic terms, dates, locations, or standard English words. Return ONLY a pure comma-separated string of the company names. If no clear companies exist in the text, return literally 'NONE'."},
+                        {"role": "system", "content": "You are a highly constrained B2B Entity Extractor. I am providing you with the raw HTML text scraped from an event page. Your STRICT job is to identify the exact names of the exhibiting and sponsoring organizations. EXPLICITLY REJECT and IGNORE all social media platforms (Facebook, Instagram, Twitter, LinkedIn, Youtube). IGNORE navigation links, generic terms, and dates. Return ONLY a pure comma-separated string of the company names. If the text does not contain a definitive list of external companies, you MUST return literally 'NONE'."},
                         {"role": "user", "content": combined_text[:15000]}
                     ]
                 }
