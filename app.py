@@ -28,10 +28,12 @@ if 'logged_in' not in st.session_state:
 
 if not st.session_state['logged_in']:
     try:
-        st.image("logo.png", width=350)
+        c1, c2, c3 = st.columns([1, 1, 1])
+        with c2:
+            st.image("logo.png", use_container_width=True)
     except:
         st.title("⚡ Marketifyer CRM")
-    st.markdown("### Secure Access Portal")
+    st.markdown("<h3 style='text-align: center;'>Secure Access Portal</h3>", unsafe_allow_html=True)
     st.divider()
     
     col1, col2, col3 = st.columns([1,2,1])
@@ -82,10 +84,12 @@ if not st.session_state['logged_in']:
 
 # ----------------- MAIN APP (CRM) -----------------
 try:
-    st.sidebar.image("logo.png", use_container_width=True)
+    sc1, sc2, sc3 = st.sidebar.columns([1, 2, 1])
+    with sc2:
+        st.image("logo.png", use_container_width=True)
 except:
     st.sidebar.title("⚡ Marketifyer")
-st.sidebar.markdown(f"Logged in as: **{st.session_state['username']}**")
+st.sidebar.markdown(f"**Logged in as:** `{st.session_state['username']}`")
 if st.sidebar.button("Logout"):
     st.session_state['logged_in'] = False
     st.rerun()
