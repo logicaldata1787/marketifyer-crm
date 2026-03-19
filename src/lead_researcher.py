@@ -33,15 +33,25 @@ class LeadResearcher:
         clean_name = re.sub(r'[^a-zA-Z0-9]', '', company).lower()
         return f"{clean_name}.com"
 
-    def extract_event_exhibitors(self, event_name: str) -> List[str]:
-        """Scrape DDG for an event's exhibitor list and extract exact company names via OpenAI."""
-        url = "https://html.duckduckgo.com/html/"
+    def extract_event_exhibitors(self, target_url: str) -> List[str]:
+        """Scrape exactly the provided URL for an exhibitor list and extract exact company names via OpenAI."""
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
         try:
-            res = requests.post(url, data={'q': f'"{event_name}" (exhibitors OR sponsors OR "floor plan")'}, headers=headers, timeout=10)
+            if not target_url.startswith("http"):
+                target_url = "https://" + target_url
+                
+            res = requests.get(target_url, headers=headers, timeout=12)
             soup = BeautifulSoup(res.text, 'html.parser')
             
-            combined_text = " ".join([snippet.text for snippet in soup.find_all('a', class_='result__snippet')])
+            for script in soup(["script", "style"]):
+                script.extract()
+            combined_text = soup.get_text(separator=' ', strip=True)
+            
+            if len(combined_text) < 150:
+                url_ddg = "https://html.duckduckgo.com/html/"
+                res = requests.post(url_ddg, data={'q': f'{target_url} exhibitors list'}, headers=headers, timeout=10)
+                soup = BeautifulSoup(res.text, 'html.parser')
+                combined_text = " ".join([snippet.text for snippet in soup.find_all('a', class_='result__snippet')])
             
             if Config.OPENAI_API_KEY:
                 ai_url = "https://api.openai.com/v1/chat/completions"
@@ -51,7 +61,7 @@ class LeadResearcher:
                     "temperature": 0.0,
                     "messages": [
                         {"role": "system", "content": "You are a precise B2B Entity Extractor. I will provide scraped web search text regarding a tradeshow or event. Your STRICT job is to identify the EXACT real names of the exhibiting/sponsoring companies. IGNORE all generic terms, dates, locations, or standard English words. Return ONLY a pure comma-separated string of the company names. If no clear companies exist in the text, return literally 'NONE'."},
-                        {"role": "user", "content": combined_text[:3500]}
+                        {"role": "user", "content": combined_text[:15000]}
                     ]
                 }
                 ai_res = requests.post(ai_url, headers=ai_headers, json=payload, timeout=15)
@@ -59,7 +69,7 @@ class LeadResearcher:
                     ans = ai_res.json()['choices'][0]['message']['content'].strip()
                     if ans != 'NONE':
                         companies = [c.strip() for c in ans.split(',') if len(c.strip()) > 2]
-                        return companies[:15]
+                        return companies[:30]
                         
             # Fallback if OpenAI key is missing
             companies = []
@@ -69,7 +79,7 @@ class LeadResearcher:
                 if len(w) > 3 and w.lower() not in invalid:
                     if w not in companies:
                         companies.append(w)
-            return list(set(companies))[:15]
+            return list(set(companies))[:30]
         except Exception as e:
             print(f"Extraction error: {e}")
             return []
