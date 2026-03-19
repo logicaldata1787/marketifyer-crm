@@ -26,6 +26,13 @@ if 'action' in st.query_params and st.query_params['action'] == 'open':
     st.image("https://upload.wikimedia.org/wikipedia/commons/c/ce/Transparent.gif", width=1)
     st.stop()
 
+if 'action' in st.query_params and st.query_params['action'] == 'unsub':
+    st.set_page_config(page_title="Unsubscribed", layout="centered")
+    email_unsub = st.query_params.get('email', 'Unknown User')
+    st.markdown("<h2 style='text-align: center; color: #dc2626;'>🚫 Unsubscribed Successfully</h2>", unsafe_allow_html=True)
+    st.markdown(f"<p style='text-align: center;'>The address <b>{email_unsub}</b> has been safely removed from our active mailing list.<br>You will not receive any further communications regarding this matter.</p>", unsafe_allow_html=True)
+    st.stop()
+
 st.set_page_config(page_title="Marketifyer CRM", layout="wide", page_icon="⚡")
 
 st.markdown("""
@@ -415,6 +422,27 @@ with tab_camp:
         with col_p2:
             max_delay = st.number_input("Maximum Delay (s)", value=120, min_value=1)
             
+        include_unsub = st.checkbox("Include CAN-SPAM Unsubscribe Link", value=True)
+            
+        st.markdown("---")
+        
+        c_t1, c_t2 = st.columns([3, 1])
+        test_email_addr = c_t1.text_input("Send Test Email To:", placeholder="your_personal_email@domain.com")
+        if c_t2.button("🔬 Send Test Email"):
+            if not active_mailbox:
+                st.error("Configure Mailbox First")
+            elif not test_email_addr:
+                st.error("Enter a test email address.")
+            else:
+                with st.spinner("Testing delivery..."):
+                    om = OutreachManager(active_mailbox['host'], active_mailbox['port'], active_mailbox['user'], active_mailbox['password'])
+                    df_test = pd.DataFrame([{"Email": test_email_addr, "Name": "Test User", "Company": "Test Corp"}])
+                    res = om.send_campaign(df_test, "[TEST] " + subject, body, reply_to, 1, 2, include_unsubscribe=include_unsub)
+                    if res['sent'] > 0:
+                        st.success(f"Test Email successfully delivered to {test_email_addr}")
+                    else:
+                        st.error("Failed to send test email. Check Mailbox diagnostics.")
+        
         st.markdown("---")
             
         if st.button("🚀 Launch Campaign & Track", type="primary"):
@@ -454,7 +482,7 @@ with tab_camp:
                 campaign_uuid = str(uuid.uuid4())
                 om = OutreachManager(active_mailbox['host'], active_mailbox['port'], active_mailbox['user'], active_mailbox['password'])
                 stats = om.send_campaign(
-                    st.session_state['leads_df'], subject, body, reply_to, int(min_delay), int(max_delay), campaign_id=campaign_uuid, progress_callback=update_progress
+                    st.session_state['leads_df'], subject, body, reply_to, int(min_delay), int(max_delay), campaign_id=campaign_uuid, include_unsubscribe=include_unsub, progress_callback=update_progress
                 )
                 
                 if stats['total'] == 0:
