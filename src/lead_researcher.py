@@ -47,12 +47,9 @@ class LeadResearcher:
                 script.extract()
             combined_text = soup.get_text(separator=' ', strip=True)
             
-            if len(combined_text) < 150:
-                url_ddg = "https://html.duckduckgo.com/html/"
-                res = requests.post(url_ddg, data={'q': f'{target_url} exhibitors list'}, headers=headers, timeout=10)
-                soup = BeautifulSoup(res.text, 'html.parser')
-                combined_text = " ".join([snippet.text for snippet in soup.find_all('a', class_='result__snippet')])
-            
+            if len(combined_text) < 50:
+                return [] # Physical HTML is structurally empty/JS-blocked
+                
             if Config.OPENAI_API_KEY:
                 ai_url = "https://api.openai.com/v1/chat/completions"
                 ai_headers = {"Authorization": f"Bearer {Config.OPENAI_API_KEY}", "Content-Type": "application/json"}
