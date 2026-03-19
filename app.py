@@ -431,7 +431,7 @@ with tab_camp:
                     fld = stats['failed']
                     prog = (stc + fld) / tot if tot > 0 else 0
                     progress_bar.progress(prog)
-                    status_text.text(f"Status: {current_action}")
+                    status_text.text(f"🚀 Progress: {stc + fld} / {tot} ({int(prog * 100)}%) | Action: {current_action}")
                     ms.metric("Sent", stc)
                     mf.metric("Failed", fld)
                     
