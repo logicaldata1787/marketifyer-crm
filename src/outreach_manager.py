@@ -1,4 +1,5 @@
 import smtplib
+import re
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import time
@@ -46,7 +47,7 @@ class OutreachManager:
         msg.attach(MIMEText(html_content, 'html'))
         return msg
 
-    def send_campaign(self, contacts_df: pd.DataFrame, subject_template: str, body_template: str, reply_to: str = "", min_delay: int = 60, max_delay: int = 300, progress_callback=None) -> Dict[str, int]:
+    def send_campaign(self, contacts_df: pd.DataFrame, subject_template: str, body_template: str, reply_to: str = "", min_delay: int = 60, max_delay: int = 300, campaign_id: str = None, progress_callback=None) -> Dict[str, int]:
         """
         Sends emails one by one with a random delay (between min_delay and max_delay in seconds)
         to simulate human sending behavior.
@@ -93,6 +94,15 @@ class OutreachManager:
                 
                 subject = subject_template.replace("{{name}}", str(name)).replace("{{company}}", str(company))
                 body = body_template.replace("{{name}}", str(name)).replace("{{company}}", str(company))
+                
+                # INJECT TRUE OPEN TRACKING PIXEL IF LIVE CONFIG
+                if campaign_id:
+                    pixel_url = f"https://marketifyer.streamlit.app/?action=open&cid={campaign_id}"
+                    pixel_html = f'<img src="{pixel_url}" width="1" height="1" alt="" style="display:none;" />'
+                    if "</body>" in body.lower():
+                        body = re.sub(r'</body>', f'{pixel_html}</body>', body, flags=re.IGNORECASE)
+                    else:
+                        body += pixel_html
                 
                 msg = self._create_message(email, subject, body, reply_to)
                 
