@@ -195,9 +195,17 @@ with tab_dash:
                 c_cols = st.columns(5)
                 c_cols[0].metric("Sent", c.get('sent'))
                 c_cols[1].metric("Failed", c.get('failed'))
-                c_cols[2].metric("Delivered", c.get('delivered'))
-                c_cols[3].metric("Opened", c.get('opened'))
-                c_cols[4].metric("Replied", c.get('replied'))
+                
+                deliv = c.get('delivered', 0)
+                opn = c.get('opened', 0)
+                rep = c.get('replied', 0)
+                
+                opn_perc = f" ({int((opn/deliv)*100)}%)" if deliv > 0 else ""
+                rep_perc = f" ({int((rep/deliv)*100)}%)" if deliv > 0 else ""
+                
+                c_cols[2].metric("Delivered", deliv)
+                c_cols[3].metric("Opened", f"{opn}{opn_perc}")
+                c_cols[4].metric("Replied", f"{rep}{rep_perc}")
                 
                 # Predictive AI Insights Logic
                 s_c = c.get('sent', 0)
