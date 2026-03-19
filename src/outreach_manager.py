@@ -47,7 +47,7 @@ class OutreachManager:
         msg.attach(MIMEText(html_content, 'html'))
         return msg
 
-    def send_campaign(self, contacts_df: pd.DataFrame, subject_template: str, body_template: str, reply_to: str = "", min_delay: int = 60, max_delay: int = 300, campaign_id: str = None, include_unsubscribe: bool = True, progress_callback=None) -> Dict[str, int]:
+    def send_campaign(self, contacts_df: pd.DataFrame, subject_template: str, body_template: str, subject_b: str = None, body_b: str = None, reply_to: str = "", min_delay: int = 60, max_delay: int = 300, campaign_id: str = None, include_unsubscribe: bool = True, progress_callback=None) -> Dict[str, int]:
         """
         Sends emails one by one with a random delay (between min_delay and max_delay in seconds)
         to simulate human sending behavior.
@@ -92,8 +92,15 @@ class OutreachManager:
                 name = row.get('Name', 'there')
                 company = row.get('Company', 'your company')
                 
-                subject = subject_template.replace("{{name}}", str(name)).replace("{{company}}", str(company))
-                body = body_template.replace("{{name}}", str(name)).replace("{{company}}", str(company))
+                if subject_b and body_b and index % 2 != 0:
+                    current_subject_template = subject_b
+                    current_body_template = body_b
+                else:
+                    current_subject_template = subject_template
+                    current_body_template = body_template
+                
+                subject = current_subject_template.replace("{{name}}", str(name)).replace("{{company}}", str(company))
+                body = current_body_template.replace("{{name}}", str(name)).replace("{{company}}", str(company))
                 
                 # INJECT TRUE OPEN TRACKING PIXEL IF LIVE CONFIG
                 if campaign_id:
