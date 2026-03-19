@@ -16,14 +16,17 @@ def load_all_campaigns_admin() -> List[Dict]:
     if supabase_client:
         try:
             res = supabase_client.table("campaigns").select("*").execute()
-            camps = []
             for row in res.data:
+                raw_s = row["subject"]
+                c_subj = raw_s.split("||||")[0] if "||||" in raw_s else raw_s
+                c_body = raw_s.split("||||")[1] if "||||" in raw_s else "Copy tracking uninitialized"
                 camps.append({
                     "id": str(row["id"]),
                     "owner": row["owner_username"],
                     "date": row["date"],
                     "name": row["name"],
-                    "subject": row["subject"],
+                    "subject": c_subj,
+                    "body": c_body,
                     "list_size": row["total_leads"],
                     "sent": row["sent"],
                     "failed": row["failed"],
@@ -44,14 +47,17 @@ def load_campaigns(username: str) -> List[Dict]:
     if supabase_client:
         try:
             res = supabase_client.table("campaigns").select("*").eq("owner_username", username).execute()
-            camps = []
             for row in res.data:
+                raw_s = row["subject"]
+                c_subj = raw_s.split("||||")[0] if "||||" in raw_s else raw_s
+                c_body = raw_s.split("||||")[1] if "||||" in raw_s else "Copy tracking uninitialized"
                 camps.append({
                     "id": str(row["id"]),
                     "owner": row["owner_username"],
                     "date": row["date"],
                     "name": row["name"],
-                    "subject": row["subject"],
+                    "subject": c_subj,
+                    "body": c_body,
                     "list_size": row["total_leads"],
                     "sent": row["sent"],
                     "failed": row["failed"],
@@ -69,8 +75,9 @@ def load_campaigns(username: str) -> List[Dict]:
             return [c for c in all_camps if c.get('owner') == username]
     except Exception: return []
 
-def save_campaign(campaign_id: str, username: str, campaign_name: str, subject: str, list_size: int, sent: int, failed: int, simulated_opened: int, simulated_replied: int):
+def save_campaign(campaign_id: str, username: str, campaign_name: str, subject: str, body: str, list_size: int, sent: int, failed: int, simulated_opened: int, simulated_replied: int):
     c_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    db_subj = f"{subject}||||{body}"
     
     if supabase_client:
         try:
@@ -78,7 +85,7 @@ def save_campaign(campaign_id: str, username: str, campaign_name: str, subject: 
                 "id": campaign_id,
                 "owner_username": username,
                 "name": campaign_name,
-                "subject": subject,
+                "subject": db_subj,
                 "date": c_date,
                 "total_leads": list_size,
                 "sent": sent,
@@ -102,6 +109,7 @@ def save_campaign(campaign_id: str, username: str, campaign_name: str, subject: 
         "date": c_date,
         "name": campaign_name,
         "subject": subject,
+        "body": body,
         "list_size": list_size,
         "sent": sent,
         "failed": failed,
