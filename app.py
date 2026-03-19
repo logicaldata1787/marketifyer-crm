@@ -482,8 +482,7 @@ with tab_camp:
                 mu.metric("Unsubscribed", 0)
                 
                 progress_bar = st.progress(0)
-                console_output = st.empty()
-                log_state = {"html": ""}
+                status_text = st.empty()
                 
                 def update_progress(stats, current_action):
                     tot = stats['total']
@@ -492,9 +491,8 @@ with tab_camp:
                     prog = (stc + fld) / tot if tot > 0 else 0
                     progress_bar.progress(prog)
                     
-                    # Mailmeteor style scrollable console
-                    log_state["html"] = f"<div style='color: #10b981; font-family: monospace; padding: 2px 0;'>[+] {current_action}</div>" + log_state["html"][:2000]
-                    console_output.markdown(f"<div style='background: #1e1e1e; padding: 15px; border-radius: 8px; height: 180px; overflow-y: auto; border: 1px solid #333;'>{log_state['html']}</div>", unsafe_allow_html=True)
+                    # Safe text-only tracking bypasses raw HTML Markdown rendering crashes
+                    status_text.text(f"🚀 Progress: {stc + fld} / {tot} ({int(prog * 100)}%) | Action: {current_action}")
                     
                     ms.metric("Sent", stc)
                     mf.metric("Failed", fld)
