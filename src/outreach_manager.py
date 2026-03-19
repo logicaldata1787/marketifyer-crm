@@ -37,14 +37,14 @@ class OutreachManager:
             print(f"SMTP Test Error: {e}")
             return False, str(e)
         
-    def _create_message(self, to_email: str, subject: str, html_content: str, reply_to: str = "") -> MIMEMultipart:
+    def _create_message(self, to_email: str, subject: str, text_content: str, reply_to: str = "") -> MIMEMultipart:
         msg = MIMEMultipart()
         msg['From'] = self.user
         msg['To'] = to_email
         msg['Subject'] = subject
         if reply_to and reply_to.strip():
             msg.add_header('reply-to', reply_to.strip())
-        msg.attach(MIMEText(html_content, 'html'))
+        msg.attach(MIMEText(text_content, 'plain'))
         return msg
 
     def send_campaign(self, contacts_df: pd.DataFrame, subject_template: str, body_template: str, subject_b: str = None, body_b: str = None, reply_to: str = "", min_delay: int = 60, max_delay: int = 300, campaign_id: str = None, include_unsubscribe: bool = True, progress_callback=None) -> Dict[str, int]:
@@ -102,26 +102,10 @@ class OutreachManager:
                 subject = current_subject_template.replace("{{name}}", str(name)).replace("{{company}}", str(company))
                 body = current_body_template.replace("{{name}}", str(name)).replace("{{company}}", str(company))
                 
-                # Format literal text linebreaks into HTML breaks so emails do not render as a single generic string
-                body = body.replace("\n", "<br>")
-                
-                # INJECT TRUE OPEN TRACKING PIXEL IF LIVE CONFIG
-                if campaign_id:
-                    pixel_url = f"https://marketifyer.streamlit.app/?action=open&cid={campaign_id}"
-                    pixel_html = f'<img src="{pixel_url}" width="1" height="1" alt="" style="display:none;" />'
-                    if "</body>" in body.lower():
-                        body = re.sub(r'</body>', f'{pixel_html}</body>', body, flags=re.IGNORECASE)
-                    else:
-                        body += pixel_html
-                        
-                # INJECT UNSUBSCRIBE LINK
+                # INJECT UNSUBSCRIBE LINK (Plaintext Architecture)
                 if include_unsubscribe:
                     unsub_url = f"https://marketifyer.streamlit.app/?action=unsub&email={email}"
-                    unsub_html = f'<br><br><p style="font-size: 11px; color: #888;">If you wish to opt out of future communications, please <a href="{unsub_url}">unsubscribe here</a>.</p>'
-                    if "</body>" in body.lower():
-                        body = re.sub(r'</body>', f'{unsub_html}</body>', body, flags=re.IGNORECASE)
-                    else:
-                        body += unsub_html
+                    body += f"\n\n---\nIf you wish to opt out of future communications, please unsubscribe by visiting: {unsub_url}"
                 
                 msg = self._create_message(email, subject, body, reply_to)
                 
