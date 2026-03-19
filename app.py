@@ -289,7 +289,7 @@ with tab_leads:
                     if not df.empty:
                         st.session_state['temp_df'] = df
                     else:
-                        st.warning("No contacts found. Review `.env` API keys or try broader target titles.")
+                        st.warning("⚠️ No contacts found. If you used a Tradeshow URL, this is likely an interactive Javascript Floorplan Map that blocks AI Scrapers. Please find the static 'A-Z Exhibitor Text Directory' URL and paste that instead!")
 
     if 'temp_df' in st.session_state and not st.session_state['temp_df'].empty:
         df = st.session_state['temp_df']
