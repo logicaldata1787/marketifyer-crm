@@ -244,7 +244,14 @@ with tab_leads:
             st.caption("AI will aggressively scrape exactly that HTML URL structure to pull the companies.")
             
         geo_target = st.multiselect("Geo-Targeting (Global Filter)", ["United States", "United Kingdom", "Canada", "Australia", "Europe", "Asia"], default=[])
-        limit_per_company = st.number_input("Max Leads per Company", min_value=1, max_value=20, value=3)
+        
+        col_L1, col_L2 = st.columns(2)
+        with col_L1:
+            limit_per_company = st.number_input("Max Leads per Company", min_value=1, max_value=20, value=3)
+        with col_L2:
+            limit_companies = st.number_input("Max Companies to Scrap", min_value=1, max_value=100, value=15)
+            
+        st.info("💡 To violently abort an extraction loop, click 'Stop' 🛑 in the top right corner of the screen.")
         
     with col2:
         default_titles = "sales manager, sales director, marketing manager, marketing director, business development, email marketing, digital marketing, demand generation, operations manager, product marketing, revenue operations, growth manager, lead generation, event manager, meetings manager, exhibit manager"
@@ -276,6 +283,7 @@ with tab_leads:
                 domains = [d.strip() for d in input_text.replace('\n', ',').split(',') if d.strip()]
             
             if domains:
+                domains = domains[:int(limit_companies)]
                 with st.spinner(f"AI Agent is dynamically extracting pipeline for {len(domains)} verified domains..."):
                     df = researcher.process_company_list(domains, titles, int(limit_per_company), geo_target)
                     if not df.empty:
