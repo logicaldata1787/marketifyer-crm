@@ -203,6 +203,8 @@ with tab_dash:
         for c in reversed(campaigns):
             with st.expander(f"📅 {c.get('date')} | 🏷️ {c.get('name')} | 📩 {c.get('sent')} Sent"):
                 st.write(f"**Sequence Template:** {c.get('subject')}")
+                with st.expander("View Raw Email Copy"):
+                    st.code(c.get('body', 'No copy tracking available for this legacy campaign.'), language='html')
                 c_cols = st.columns(5)
                 c_cols[0].metric("Sent", c.get('sent'))
                 c_cols[1].metric("Failed", c.get('failed'))
@@ -416,8 +418,17 @@ with tab_camp:
         def_subj = "Exploring potential synergies between {{company}} and us"
         def_body = "<p>Hi {{name}},</p><br><p>I noticed your great work over at {{company}} and thought it would be great to connect regarding some business development initiatives.</p><br><p>Best,<br>Your Name</p>"
         
-        subject = st.text_input("Subject Line:", def_subj)
-        body = st.text_area("Email Content (HTML supported):", def_body, height=200)
+        subject_a = st.text_input("Subject Line (Variant A):", def_subj)
+        body_a = st.text_area("Email Content A (HTML supported):", def_body, height=200)
+        
+        ab_test = st.checkbox("🧪 Enable A/B Testing (Split Sequence Sending)")
+        subject_b, body_b = None, None
+        
+        if ab_test:
+            st.markdown("---")
+            subject_b = st.text_input("Subject Line (Variant B):", "Quick question regarding {{company}}")
+            body_b = st.text_area("Email Content B (HTML supported):", def_body, height=200)
+            
         reply_to = st.text_input("Custom Reply-To Address (Optional):", placeholder="Master inbox routing...")
         
         col_p1, col_p2 = st.columns(2)
@@ -441,7 +452,7 @@ with tab_camp:
                 with st.spinner("Testing delivery..."):
                     om = OutreachManager(active_mailbox['host'], active_mailbox['port'], active_mailbox['user'], active_mailbox['password'])
                     df_test = pd.DataFrame([{"Email": test_email_addr, "Name": "Test User", "Company": "Test Corp"}])
-                    res = om.send_campaign(df_test, "[TEST] " + subject, body, reply_to, 1, 2, include_unsubscribe=include_unsub)
+                    res = om.send_campaign(df_test, "[TEST] " + subject_a, body_a, None, None, reply_to, 1, 2, include_unsubscribe=include_unsub)
                     if res['sent'] > 0:
                         st.success(f"Test Email successfully delivered to {test_email_addr}")
                     else:
@@ -471,22 +482,28 @@ with tab_camp:
                 mu.metric("Unsubscribed", 0)
                 
                 progress_bar = st.progress(0)
-                status_text = st.empty()
+                console_output = st.empty()
+                log_html = ""
                 
                 def update_progress(stats, current_action):
+                    nonlocal log_html
                     tot = stats['total']
                     stc = stats['sent']
                     fld = stats['failed']
                     prog = (stc + fld) / tot if tot > 0 else 0
                     progress_bar.progress(prog)
-                    status_text.text(f"🚀 Progress: {stc + fld} / {tot} ({int(prog * 100)}%) | Action: {current_action}")
+                    
+                    # Mailmeteor style scrollable console
+                    log_html = f"<div style='color: #10b981; font-family: monospace; padding: 2px 0;'>[+] {current_action}</div>" + log_html[:2000]
+                    console_output.markdown(f"<div style='background: #1e1e1e; padding: 15px; border-radius: 8px; height: 180px; overflow-y: auto; border: 1px solid #333;'>{log_html}</div>", unsafe_allow_html=True)
+                    
                     ms.metric("Sent", stc)
                     mf.metric("Failed", fld)
                     
                 campaign_uuid = str(uuid.uuid4())
                 om = OutreachManager(active_mailbox['host'], active_mailbox['port'], active_mailbox['user'], active_mailbox['password'])
                 stats = om.send_campaign(
-                    st.session_state['leads_df'], subject, body, reply_to, int(min_delay), int(max_delay), campaign_id=campaign_uuid, include_unsubscribe=include_unsub, progress_callback=update_progress
+                    st.session_state['leads_df'], subject_a, body_a, subject_b, body_b, reply_to, int(min_delay), int(max_delay), campaign_id=campaign_uuid, include_unsubscribe=include_unsub, progress_callback=update_progress
                 )
                 
                 if stats['total'] == 0:
@@ -501,7 +518,9 @@ with tab_camp:
                     mr.metric("Replied", stats.get('simulated_replied', 0))
                     
                     # Store it!
-                    save_campaign(campaign_uuid, st.session_state['username'], campaign_name_custom, subject, stats['total'], stats['sent'], stats['failed'], stats.get('simulated_opened', 0), stats.get('simulated_replied', 0))
+                    final_subj = f"Variant A: {subject_a} | Variant B: {subject_b}" if ab_test else subject_a
+                    final_body = f"=== VARIANT A ===\n{body_a}\n\n=== VARIANT B ===\n{body_b}" if ab_test else body_a
+                    save_campaign(campaign_uuid, st.session_state['username'], campaign_name_custom, final_subj, final_body, stats['total'], stats['sent'], stats['failed'], stats.get('simulated_opened', 0), stats.get('simulated_replied', 0))
 
 with tab_mbox:
     st.header("Manage Mailboxes")
