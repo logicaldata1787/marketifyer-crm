@@ -69,7 +69,7 @@ class LeadResearcher:
                     ans = ai_res.json()['choices'][0]['message']['content'].strip()
                     if ans != 'NONE':
                         companies = [c.strip() for c in ans.split(',') if len(c.strip()) > 2]
-                        return companies[:30]
+                        return companies
                         
             # Fallback if OpenAI key is missing
             companies = []
@@ -79,7 +79,7 @@ class LeadResearcher:
                 if len(w) > 3 and w.lower() not in invalid:
                     if w not in companies:
                         companies.append(w)
-            return list(set(companies))[:30]
+            return list(set(companies))
         except Exception as e:
             print(f"Extraction error: {e}")
             return []
