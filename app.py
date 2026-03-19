@@ -291,14 +291,14 @@ with tab_leads:
                         
                         found = False
                         if e:
-                            v, _ = verify_email(e)
+                            v = verify_email(e)
                             if v:
                                 valid_df.append(r)
                                 found = True
                                 
                         if not found and isinstance(perms, list):
                             for p in perms:
-                                v, _ = verify_email(p)
+                                v = verify_email(p)
                                 if v:
                                     r['Email'] = p
                                     r['Source'] += " (Verified via AI Iteration)"
