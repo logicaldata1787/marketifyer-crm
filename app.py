@@ -9,6 +9,22 @@ from src.email_verifier import verify_email
 from src.mailbox_store import load_mailboxes, save_mailbox, delete_mailbox
 from src.campaign_store import load_campaigns, save_campaign, delete_campaign, load_all_campaigns_admin
 import src.auth as auth
+import uuid
+
+# ----------------- TRUE OPEN TRACKING INTERCEPTOR -----------------
+if 'action' in st.query_params and st.query_params['action'] == 'open':
+    campaign_id = st.query_params.get('cid')
+    if campaign_id:
+        try:
+            from config import supabase_client
+            if supabase_client:
+                res = supabase_client.table("campaigns").select("opened").eq("id", campaign_id).execute()
+                if len(res.data) > 0:
+                    curr = res.data[0]["opened"]
+                    supabase_client.table("campaigns").update({"opened": curr + 1}).eq("id", campaign_id).execute()
+        except: pass
+    st.image("https://upload.wikimedia.org/wikipedia/commons/c/ce/Transparent.gif", width=1)
+    st.stop()
 
 st.set_page_config(page_title="Marketifyer CRM", layout="wide", page_icon="⚡")
 
@@ -419,9 +435,10 @@ with tab_camp:
                     ms.metric("Sent", stc)
                     mf.metric("Failed", fld)
                     
+                campaign_uuid = str(uuid.uuid4())
                 om = OutreachManager(active_mailbox['host'], active_mailbox['port'], active_mailbox['user'], active_mailbox['password'])
                 stats = om.send_campaign(
-                    st.session_state['leads_df'], subject, body, reply_to, int(min_delay), int(max_delay), progress_callback=update_progress
+                    st.session_state['leads_df'], subject, body, reply_to, int(min_delay), int(max_delay), campaign_id=campaign_uuid, progress_callback=update_progress
                 )
                 
                 if stats['total'] == 0:
@@ -436,7 +453,7 @@ with tab_camp:
                     mr.metric("Replied", stats.get('simulated_replied', 0))
                     
                     # Store it!
-                    save_campaign(st.session_state['username'], campaign_name_custom, subject, stats['total'], stats['sent'], stats['failed'], stats.get('simulated_opened', 0), stats.get('simulated_replied', 0))
+                    save_campaign(campaign_uuid, st.session_state['username'], campaign_name_custom, subject, stats['total'], stats['sent'], stats['failed'], stats.get('simulated_opened', 0), stats.get('simulated_replied', 0))
 
 with tab_mbox:
     st.header("Manage Mailboxes")
