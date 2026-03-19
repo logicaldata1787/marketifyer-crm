@@ -34,22 +34,44 @@ class LeadResearcher:
         return f"{clean_name}.com"
 
     def extract_event_exhibitors(self, event_name: str) -> List[str]:
-        """Scrape DDG for an event's exhibitor list and extract company names/domains."""
+        """Scrape DDG for an event's exhibitor list and extract exact company names via OpenAI."""
         url = "https://html.duckduckgo.com/html/"
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
-        companies = []
         try:
-            res = requests.post(url, data={'q': f'"{event_name}" exhibitors sponsors list'}, headers=headers, timeout=10)
+            res = requests.post(url, data={'q': f'"{event_name}" (exhibitors OR sponsors OR "floor plan")'}, headers=headers, timeout=10)
             soup = BeautifulSoup(res.text, 'html.parser')
-            for snippet in soup.find_all('a', class_='result__snippet'):
-                text = snippet.text
-                words = re.findall(r'\b[A-Z][a-zA-Z0-9_]+\b', text)
-                for w in words:
-                    if len(w) > 3 and w.lower() not in ['event', 'sponsor', 'exhibitor', 'booth', 'hall', 'the', 'and', 'inc', 'llc', 'company', 'solutions']:
-                        if w not in companies:
-                            companies.append(w)
+            
+            combined_text = " ".join([snippet.text for snippet in soup.find_all('a', class_='result__snippet')])
+            
+            if Config.OPENAI_API_KEY:
+                ai_url = "https://api.openai.com/v1/chat/completions"
+                ai_headers = {"Authorization": f"Bearer {Config.OPENAI_API_KEY}", "Content-Type": "application/json"}
+                payload = {
+                    "model": "gpt-4o-mini",
+                    "temperature": 0.0,
+                    "messages": [
+                        {"role": "system", "content": "You are a precise B2B Entity Extractor. I will provide scraped web search text regarding a tradeshow or event. Your STRICT job is to identify the EXACT real names of the exhibiting/sponsoring companies. IGNORE all generic terms, dates, locations, or standard English words. Return ONLY a pure comma-separated string of the company names. If no clear companies exist in the text, return literally 'NONE'."},
+                        {"role": "user", "content": combined_text[:3500]}
+                    ]
+                }
+                ai_res = requests.post(ai_url, headers=ai_headers, json=payload, timeout=15)
+                if ai_res.status_code == 200:
+                    ans = ai_res.json()['choices'][0]['message']['content'].strip()
+                    if ans != 'NONE':
+                        companies = [c.strip() for c in ans.split(',') if len(c.strip()) > 2]
+                        return companies[:15]
+                        
+            # Fallback if OpenAI key is missing
+            companies = []
+            words = re.findall(r'\b[A-Z][a-zA-Z0-9_\-&]+\b', combined_text)
+            invalid = ['event', 'sponsor', 'exhibitor', 'booth', 'hall', 'the', 'and', 'inc', 'llc', 'company', 'solutions', 'data', 'software', 'technology', 'medical', 'news', 'floor', 'plan']
+            for w in words:
+                if len(w) > 3 and w.lower() not in invalid:
+                    if w not in companies:
+                        companies.append(w)
             return list(set(companies))[:15]
-        except:
+        except Exception as e:
+            print(f"Extraction error: {e}")
             return []
 
     def _get_hunter_pattern(self, domain: str) -> str:
