@@ -4,20 +4,31 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
+def get_secret(key, default=None):
+    val = os.getenv(key)
+    if not val:
+        try:
+            import streamlit as st
+            if key in st.secrets:
+                return st.secrets[key]
+        except Exception:
+            pass
+    return val if val else default
+
 class Config:
     # LLM Settings
-    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+    OPENAI_API_KEY = get_secret("OPENAI_API_KEY")
 
     # API Keys for Data Enrichment and Web Search
-    APOLLO_API_KEY = os.getenv("APOLLO_API_KEY")
-    HUNTER_API_KEY = os.getenv("HUNTER_API_KEY")
-    TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
+    APOLLO_API_KEY = get_secret("APOLLO_API_KEY")
+    HUNTER_API_KEY = get_secret("HUNTER_API_KEY")
+    TAVILY_API_KEY = get_secret("TAVILY_API_KEY")
 
     # Email Settings
-    SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
-    SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
-    SMTP_USER = os.getenv("SMTP_USER")
-    SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
+    SMTP_HOST = get_secret("SMTP_HOST", "smtp.gmail.com")
+    SMTP_PORT = int(get_secret("SMTP_PORT", 587))
+    SMTP_USER = get_secret("SMTP_USER")
+    SMTP_PASSWORD = get_secret("SMTP_PASSWORD")
 
     @classmethod
     def validate_keys(cls):
@@ -33,8 +44,8 @@ class Config:
 # -----------------------------------------------------
 # SUPABASE HYBRID INTEGRATION (Optional Commercial DB)
 # -----------------------------------------------------
-Config.SUPABASE_URL = os.getenv("SUPABASE_URL")
-Config.SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+Config.SUPABASE_URL = get_secret("SUPABASE_URL")
+Config.SUPABASE_KEY = get_secret("SUPABASE_KEY")
 
 try:
     from supabase import create_client, Client
