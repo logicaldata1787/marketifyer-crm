@@ -212,61 +212,114 @@ with tab_dash:
 
 with tab_leads:
     st.header("Find & Extract Contacts")
-    st.markdown("Extract specific decision makers effortlessly. Generics pull robustly using BS4.")
+    st.markdown("Extract specific decision makers effortlessly with multi-vector AI routing.")
+    
+    search_mode = st.radio("Extraction Source Strategy:", ["🏢 By Company Domains", "🏢 By Company Names (Auto-Resolve)", "🎟️ By Tradeshow / Event Name"], horizontal=True)
     
     col1, col2 = st.columns([1, 2])
     with col1:
-        domains_input = st.text_area("Company Domains (one per line):", "stripe.com\nopenai.com", height=150)
-    with col2:
-        default_titles = "sales manager, sales director, marketing manager, marketing director, business development, email marketing, digital marketing"
-        titles_input = st.text_area("Target Job Titles (comma-separated):", default_titles, height=150)
-    
-    if st.button("Extract Leads Database", type="primary"):
-        domains = [d.strip() for d in domains_input.split('\n') if d.strip()]
-        titles = [t.strip() for t in titles_input.split(',')]
+        input_text = ""
+        if search_mode == "🏢 By Company Domains":
+            input_text = st.text_area("Targets (comma or newline separated):", "stripe.com\nopenai.com", height=120)
+        elif search_mode == "🏢 By Company Names (Auto-Resolve)":
+            input_text = st.text_area("Company Names (comma or newline separated):", "Apple Inc\nMicrosoft\nSpaceX", height=120)
+        else:
+            input_text = st.text_input("Exact Tradeshow / Event Name:", placeholder="e.g. HIMSS 2026")
+            st.caption("AI will automatically scrape the web for the exhibitor list.")
+            
+        geo_target = st.multiselect("Geo-Targeting (Global Filter)", ["United States", "United Kingdom", "Canada", "Australia", "Europe", "Asia"], default=[])
+        limit_per_company = st.number_input("Max Leads per Company", min_value=1, max_value=20, value=3)
         
-        with st.spinner(f"Agent is investigating {len(domains)} companies..."):
-            df = researcher.process_company_list(domains, titles)
-            if not df.empty:
-                # Native AI Match Scoring System
-                def score_lead(row):
-                    t = str(row.get('Title', '')).lower()
-                    score = 50
-                    if any(x in t for x in ['vp', 'director', 'chief', 'head', 'founder', 'ceo', 'cmo', 'president']):
-                        score += 35
-                    if any(x in t for x in ['manager', 'lead']):
-                        score += 20
-                    if any(x in t for x in ['marketing', 'sales', 'growth', 'business']):
-                        score += 15
-                    if row.get('Source') == 'AI Fallback Scraper' or 'generic' in str(row.get('Title', '')).lower():
-                        score -= 25
-                    return min(max(score, 15), 99)
-                
-                df['AI Match Score'] = df.apply(score_lead, axis=1)
-                cols = df.columns.tolist()
-                
-                # Reorder so Score is prominent across the visual dataframe
-                if 'AI Match Score' in cols:
-                    cols.insert(2, cols.pop(cols.index('AI Match Score')))
-                    df = df[cols]
-                    
-                st.session_state['temp_df'] = df
+    with col2:
+        default_titles = "sales manager, sales director, marketing manager, marketing director, business development, email marketing, digital marketing, demand generation, operations manager, product marketing, revenue operations, growth manager, lead generation, event manager, meetings manager, exhibit manager"
+        titles_input = st.text_area("Target Job Titles (comma-separated):", default_titles, height=210)
+    
+    if st.button("🚀 Extract Leads Database", type="primary", use_container_width=True):
+        if not input_text:
+            st.error("Please provide targets to extract.")
+        else:
+            titles = [t.strip() for t in titles_input.split(',') if t.strip()]
+            domains = []
+            
+            if search_mode == "🎟️ By Tradeshow / Event Name":
+                with st.spinner(f"Scraping the internet for {input_text} exhibitors..."):
+                    comps = researcher.extract_event_exhibitors(input_text)
+                    if comps:
+                        st.info(f"Automatically identified {len(comps)} exhibitors: {', '.join(comps)}")
+                        with st.spinner("Resolving exhibitor names into official domains..."):
+                            for c in comps:
+                                domains.append(researcher.resolve_company_to_domain(c))
+                    else:
+                        st.warning("Failed to find any public exhibitor list for that event.")
+            elif search_mode == "🏢 By Company Names (Auto-Resolve)":
+                raw_comps = [d.strip() for d in input_text.replace('\n', ',').split(',') if d.strip()]
+                with st.spinner(f"Auto-Resolving {len(raw_comps)} company names to standard URL domains..."):
+                    for c in raw_comps:
+                        domains.append(researcher.resolve_company_to_domain(c))
             else:
-                st.warning("No contacts found. Review `.env` API keys.")
+                domains = [d.strip() for d in input_text.replace('\n', ',').split(',') if d.strip()]
+            
+            if domains:
+                with st.spinner(f"AI Agent is dynamically extracting pipeline for {len(domains)} verified domains..."):
+                    df = researcher.process_company_list(domains, titles, int(limit_per_company), geo_target)
+                    if not df.empty:
+                        st.session_state['temp_df'] = df
+                    else:
+                        st.warning("No contacts found. Review `.env` API keys or try broader target titles.")
 
     if 'temp_df' in st.session_state and not st.session_state['temp_df'].empty:
         df = st.session_state['temp_df']
-        st.success(f"Success! Extracted {len(df)} contacts.")
-        st.dataframe(df, use_container_width=True)
+        st.success(f"Success! Extracted {len(df)} sophisticated contacts.")
         
-        col_btn1, col_btn2 = st.columns(2)
-        with col_btn1:
-            csv = df.to_csv(index=False)
-            st.download_button("💾 Download Leads CSV", data=csv, file_name="marketifyer_leads.csv", mime="text/csv")
-        with col_btn2:
-            if st.button("📥 Add Database to Campaign Pipeline"):
-                st.session_state['leads_df'] = df
-                st.success("Loaded! Go to Campaigns.")
+        df_display = df.drop(columns=['Permutations']) if 'Permutations' in df.columns else df
+        st.dataframe(df_display, use_container_width=True)
+        
+        st.markdown("### Pipeline Actions")
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            csv = df.drop(columns=['Permutations'], errors='ignore').to_csv(index=False)
+            st.download_button("💾 Download CSV", data=csv, file_name="marketifyer_leads.csv", mime="text/csv", use_container_width=True)
+        
+        with c2:
+            if st.button("✅ Validate & Scrub Emails", use_container_width=True, type="primary"):
+                with st.spinner("Pinging raw Mail Exchange (MX) servers globally..."):
+                    valid_df = []
+                    inv_count = 0
+                    for i, r in df.iterrows():
+                        e = r.get('Email', '')
+                        perms = r.get('Permutations', [])
+                        
+                        found = False
+                        if e:
+                            v, _ = verify_email(e)
+                            if v:
+                                valid_df.append(r)
+                                found = True
+                                
+                        if not found and isinstance(perms, list):
+                            for p in perms:
+                                v, _ = verify_email(p)
+                                if v:
+                                    r['Email'] = p
+                                    r['Source'] += " (Verified via AI Iteration)"
+                                    valid_df.append(r)
+                                    found = True
+                                    break
+                                    
+                        if not found:
+                            inv_count += 1
+                            
+                    st.session_state['temp_df'] = pd.DataFrame(valid_df)
+                    st.session_state['scrub_msg'] = f"Scrub complete! Protected you from {inv_count} hard-bounces."
+                st.rerun()
+
+        with c3:
+            if st.button("📥 Add to Campaign Pipeline", use_container_width=True):
+                st.session_state['leads_df'] = df.drop(columns=['Permutations'], errors='ignore')
+                st.success("Loaded! Go to Campaigns tab.")
+                
+        if 'scrub_msg' in st.session_state:
+            st.info(st.session_state['scrub_msg'])
 
 with tab_camp:
     st.header("Campaign Engine")
