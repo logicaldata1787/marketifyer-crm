@@ -42,6 +42,10 @@ st.markdown("""
 .stButton>button[kind="primary"] { background-color: #2563eb; color: white; border: none; }
 h1, h2, h3 { font-family: 'Inter', sans-serif; font-weight: 700; color: #1e293b; }
 .st-bb { border-radius: 8px; }
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+header {visibility: hidden;}
+.viewerBadge_container__1QSob {display: none !important;}
 </style>
 """, unsafe_allow_html=True)
 
