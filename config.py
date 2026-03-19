@@ -29,3 +29,18 @@ class Config:
             print("Warning: No contact enrichment API keys found. Web scraping fallback will be used, which is less reliable.")
         
         return missing
+
+# -----------------------------------------------------
+# SUPABASE HYBRID INTEGRATION (Optional Commercial DB)
+# -----------------------------------------------------
+Config.SUPABASE_URL = os.getenv("SUPABASE_URL")
+Config.SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
+try:
+    from supabase import create_client, Client
+    if Config.SUPABASE_URL and Config.SUPABASE_KEY:
+        supabase_client: Client = create_client(Config.SUPABASE_URL, Config.SUPABASE_KEY)
+    else:
+        supabase_client = None
+except ImportError:
+    supabase_client = None
