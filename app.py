@@ -230,7 +230,7 @@ with tab_leads:
     st.header("Find & Extract Contacts")
     st.markdown("Extract specific decision makers effortlessly with multi-vector AI routing.")
     
-    search_mode = st.radio("Extraction Source Strategy:", ["🏢 By Company Domains", "🏢 By Company Names (Auto-Resolve)", "🎟️ By Tradeshow / Event Name"], horizontal=True)
+    search_mode = st.radio("Extraction Source Strategy:", ["🏢 By Company Domains", "🏢 By Company Names (Auto-Resolve)", "🎟️ By Tradeshow Directory URL"], horizontal=True)
     
     col1, col2 = st.columns([1, 2])
     with col1:
@@ -240,8 +240,8 @@ with tab_leads:
         elif search_mode == "🏢 By Company Names (Auto-Resolve)":
             input_text = st.text_area("Company Names (comma or newline separated):", "Apple Inc\nMicrosoft\nSpaceX", height=120)
         else:
-            input_text = st.text_input("Exact Tradeshow / Event Name:", placeholder="e.g. HIMSS 2026")
-            st.caption("AI will automatically scrape the web for the exhibitor list.")
+            input_text = st.text_input("Exact Tradeshow Exhibitor URL:", placeholder="https://www.event.com/exhibitor-list")
+            st.caption("AI will aggressively scrape exactly that HTML URL structure to pull the companies.")
             
         geo_target = st.multiselect("Geo-Targeting (Global Filter)", ["United States", "United Kingdom", "Canada", "Australia", "Europe", "Asia"], default=[])
         limit_per_company = st.number_input("Max Leads per Company", min_value=1, max_value=20, value=3)
@@ -257,8 +257,8 @@ with tab_leads:
             titles = [t.strip() for t in titles_input.split(',') if t.strip()]
             domains = []
             
-            if search_mode == "🎟️ By Tradeshow / Event Name":
-                with st.spinner(f"Scraping the internet for {input_text} exhibitors..."):
+            if search_mode == "🎟️ By Tradeshow Directory URL":
+                with st.spinner(f"Scraping the direct HTML architecture of {input_text}..."):
                     comps = researcher.extract_event_exhibitors(input_text)
                     if comps:
                         st.info(f"Automatically identified {len(comps)} exhibitors: {', '.join(comps)}")
