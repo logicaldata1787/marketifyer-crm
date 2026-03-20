@@ -62,12 +62,14 @@ except ImportError:
 def get_db_connection():
     try:
         import psycopg2
+        pwd = get_secret("SUPABASE_PASSWORD")
+        if not pwd: return None
         conn = psycopg2.connect(
             host="db.ohgrvdsrwesrpjzfmbjh.supabase.co",
             port=5432,
             dbname="postgres",
             user="postgres",
-            password="Pandey@123$!"
+            password=pwd
         )
         conn.autocommit = True
         return conn
