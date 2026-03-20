@@ -2,9 +2,15 @@ import requests
 import json
 import base64
 import os
+import sys
 
-_ascii = [103, 104, 112, 95, 65, 105, 48, 108, 53, 97, 84, 110, 65, 115, 105, 67, 116, 52, 122, 107, 99, 54, 116, 85, 79, 73, 102, 68, 84, 102, 57, 77, 82, 112, 50, 122, 66, 99, 87, 53]
-GITHUB_TOKEN = "".join(chr(c) for c in _ascii)
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+try:
+    from config import Config
+    GITHUB_TOKEN = Config.get_secret("GITHUB_TOKEN")
+except:
+    GITHUB_TOKEN = None
+
 REPO = "logicaldata1787/marketifyer-crm"
 BRANCH = "storage"
 HEADERS = {
