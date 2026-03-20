@@ -272,7 +272,7 @@ with tab_leads:
             
         st.info("💡 To violently abort an extraction loop, click 'Stop' 🛑 in the top right corner of the screen.")
         
-        limit_per_company = 9999
+        limit_per_company = st.number_input("Max Leads per Company", min_value=1, max_value=20, value=3)
         limit_companies = 999999
         
     with col2:
@@ -425,7 +425,9 @@ with tab_camp:
         campaign_name_custom = st.text_input("Campaign Name (For Tracking Dashboard):", "B2B Q4 Outreach")
         
         def_subj = "Exploring potential synergies between {{company}} and us"
-        def_body = "<p>Hi {{name}},</p><br><p>I noticed your great work over at {{company}} and thought it would be great to connect regarding some business development initiatives.</p><br><p>Best,<br>Your Name</p>"
+        def_body = "<p>Hi {{name}},</p><br><p>{{icebreaker}}</p><br><p>I noticed your great work over at {{company}} and thought it would be great to connect regarding some business development initiatives.</p><br><p>Best,<br>Your Name</p>"
+        
+        st.info("💡 **UNIQUE FEATURE:** Put `{{icebreaker}}` anywhere in your email body, and our new bleeding-edge AI Persona Agent will automatically replace it with a hyper-personalized, 1-sentence emotional hook based entirely on their Company!")
         
         subject_a = st.text_input("Subject Line (Variant A):", def_subj)
         body_a = st.text_area("Email Content A (HTML supported):", def_body, height=200)
@@ -473,9 +475,9 @@ with tab_camp:
         
         c_la1, c_la2 = st.columns(2)
         with c_la1:
-            launch_sync = st.button("🚀 Launch Synchronously (Live Tracker)", type="primary", use_container_width=True)
+            launch_sync = st.button("🚀 Launch Live & Track Here", type="primary", use_container_width=True)
         with c_la2:
-            launch_async = st.button("☁️ Queue to Cloud Daemon (Close Laptop)", type="primary", use_container_width=True)
+            launch_async = st.button("☁️ Multi-Tasking Mode (Queue to Background)", type="primary", use_container_width=True)
             
         if launch_async:
             if not active_mailbox:
