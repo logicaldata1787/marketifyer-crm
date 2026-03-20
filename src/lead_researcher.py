@@ -152,7 +152,7 @@ class LeadResearcher:
                     c['Email'] = f"{fn}@{company_domain}"
                     c['Source'] += " + Dynamic Pattern AI"
                     
-        contacts.extend(self._scrape_fallback(company_domain))
+        # Note: Scrape fallback was moved functionally closer to root `process_company_list` loop to pass titles natively.
         return contacts
 
     def _hunter_find_email(self, domain: str, first_name: str, last_name: str) -> str:
@@ -228,28 +228,85 @@ class LeadResearcher:
         except Exception: pass
         return contacts
 
-    def _scrape_fallback(self, domain: str) -> List[Dict]:
-        urls = [f"http://www.{domain}", f"https://www.{domain}/contact", f"https://www.{domain}/about"]
+    def _scrape_fallback(self, domain: str, titles: List[str] = None) -> List[Dict]:
+        urls = [f"http://www.{domain}", f"https://www.{domain}/about", f"https://www.{domain}/team", f"https://www.{domain}/leadership"]
+        combined_text = ""
         emails_found = set()
         regex = re.compile(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}')
+        
         for u in urls:
             try:
-                res = requests.get(u, timeout=5, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
+                res = requests.get(u, timeout=6, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
                 if res.status_code == 200:
                     soup = BeautifulSoup(res.text, 'html.parser')
+                    for script in soup(["script", "style", "nav", "footer"]):
+                        script.extract()
+                    combined_text += " " + soup.get_text(separator=' ', strip=True)
+                    
                     for mailto in soup.select('a[href^=mailto]'):
                         emails_found.add(mailto['href'].replace('mailto:', '').split('?')[0].strip().lower())
                     emails_found.update([e.lower() for e in regex.findall(res.text)])
             except: continue
+            
+        contacts = []
+        
+        # 1. Map any generic routing emails explicitly requested
         valid = ['info@', 'sales@', 'marketing@', 'contact@', 'support@', 'admin@']
         filtered = [e for e in emails_found if any(e.startswith(p) for p in valid)]
-        
-        contacts = []
-        for e in list(filtered)[:5]:
+        for e in list(filtered)[:2]:
             contacts.append({
                 "Name": "Company Inbox", "Title": "Generic Routing Email",
                 "Email": e, "Company": domain, "LinkedIn": "", "Source": "Web Scraper", "Permutations": []
             })
+            
+        # 2. Advanced Deep AI Target Title Extraction
+        if Config.OPENAI_API_KEY and len(combined_text) > 100:
+            ai_url = "https://api.openai.com/v1/chat/completions"
+            ai_headers = {"Authorization": f"Bearer {Config.OPENAI_API_KEY}", "Content-Type": "application/json"}
+            
+            prompt = "Extract any physical human names and their exact job titles from this raw website text. Only return people who match these Target Titles loosely: " + ", ".join(titles if titles else ["Executive", "Manager"])
+            prompt += ". Format EXACTLY as: Name | Title | Email (if present, else leave blank). One per line. If none exist, output NONE."
+            
+            payload = {
+                "model": "gpt-4o-mini",
+                "temperature": 0.0,
+                "messages": [
+                    {"role": "system", "content": "You are a B2B structural data extractor."},
+                    {"role": "user", "content": f"{prompt}\n\nTEXT:\n{combined_text[:40000]}"}
+                ]
+            }
+            try:
+                ai_res = requests.post(ai_url, headers=ai_headers, json=payload, timeout=15)
+                if ai_res.status_code == 200:
+                    ans = ai_res.json()['choices'][0]['message']['content'].strip()
+                    if ans != 'NONE':
+                        pattern = self._get_hunter_pattern(domain)
+                        for line in ans.split('\n'):
+                            parts = [p.strip() for p in line.split('|')]
+                            if len(parts) >= 2:
+                                name, title = parts[0], parts[1]
+                                organic_email = parts[2] if len(parts) > 2 and '@' in parts[2] else ""
+                                
+                                perms_out = []
+                                if not organic_email:
+                                    name_parts = name.split(' ')
+                                    if len(name_parts) >= 2:
+                                        fn, ln = name_parts[0], name_parts[-1]
+                                        perms = self.build_email_permutations(fn, ln, domain, pattern)
+                                        if perms:
+                                            organic_email = perms[0]
+                                            perms_out = perms[1:5]
+                                    elif len(name_parts) == 1 and name_parts[0]:
+                                        organic_email = f"{name_parts[0].lower()}@{domain}"
+                                
+                                c_dict = {
+                                    "Name": name, "Title": title, "Email": organic_email,
+                                    "Company": domain, "LinkedIn": "", "Source": "Deep AI Scraper Agent", "Permutations": perms_out
+                                }
+                                contacts.append(c_dict)
+            except Exception as e:
+                print(f"Deep Web Scraper AI Error: {e}")
+                
         return contacts
 
     def process_company_list(self, domains: List[str], titles: List[str], limit: int = 3, locations: List[str] = None) -> pd.DataFrame:
@@ -261,6 +318,8 @@ class LeadResearcher:
                 break
             if domain not in processed_domains: # Prevent duplicates if many raw company names resolved to same domain
                 contacts = self.find_contacts(domain, titles, limit, locations)
+                # Ensure the Deep Scraper fallback is explicitly executed passing the titles!
+                contacts.extend(self._scrape_fallback(domain, titles))
                 all_contacts.extend(contacts)
                 processed_domains.append(domain)
         # Sort structurally for UI
