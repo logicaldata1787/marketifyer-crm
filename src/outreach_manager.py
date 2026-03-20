@@ -47,19 +47,21 @@ class OutreachManager:
         msg.attach(MIMEText(text_content, 'plain'))
         return msg
 
-    def send_campaign(self, contacts_df: pd.DataFrame, subject_template: str, body_template: str, subject_b: str = None, body_b: str = None, reply_to: str = "", min_delay: int = 60, max_delay: int = 300, campaign_id: str = None, include_unsubscribe: bool = True, progress_callback=None) -> Dict[str, int]:
+    def send_campaign(self, contacts_df: pd.DataFrame, subject_template: str, body_template: str, subject_b: str = None, body_b: str = None, reply_to: str = "", min_delay: int = 60, max_delay: int = 300, campaign_id: str = None, include_unsubscribe: bool = True, progress_callback=None, abort_callback=None) -> Dict[str, int]:
         """
         Sends emails one by one with a random delay (between min_delay and max_delay in seconds)
         to simulate human sending behavior.
         Returns: Dict containing basic stats (sent, failed, total).
         """
-        stats = {"sent": 0, "failed": 0, "total": 0}
+        stats = {"total": 0, "sent": 0, "failed": 0, "simulated_opened": 0, "simulated_replied": 0, "aborted": False}
         
         # Filter contacts with empty or invalid emails first
-        valid_df = contacts_df.dropna(subset=['Email'])
-        valid_df = valid_df[valid_df['Email'] != ""]
-        stats["total"] = len(valid_df)
+        valid_df = contacts_df[contacts_df['Email'].notna() & (contacts_df['Email'] != "")]
+        stats['total'] = len(valid_df)
         
+        if 'Delivery Status' not in contacts_df.columns:
+            contacts_df['Delivery Status'] = 'Pending'
+            
         if stats["total"] == 0:
             if progress_callback:
                 progress_callback(stats, "No valid emails found in the list.")
@@ -88,6 +90,10 @@ class OutreachManager:
             print("SMTP Login successful.")
             
             for index, row in valid_df.iterrows():
+                if abort_callback and abort_callback():
+                    stats['aborted'] = True
+                    break
+                    
                 email = row.get('Email')
                 name = row.get('Name', 'there')
                 company = row.get('Company', 'your company')
@@ -116,18 +122,27 @@ class OutreachManager:
                 try:
                     server.send_message(msg)
                     print(f"Sent successfully to {email}.")
-                    stats["sent"] += 1
-                except Exception as loop_e:
-                    print(f"Failed to send to {email}: {loop_e}")
-                    stats["failed"] += 1
+                    stats['sent'] += 1
+                    contacts_df.at[index, 'Delivery Status'] = 'Sent'
+                    
+                    if progress_callback:
+                        progress_callback(stats, f"Sent successfully to {email}.")
+                    
+                    # Check if it's the last email to avoid unnecessary delay at the end
+                    if index < len(valid_df) - 1:
+                        delay = random.randint(min_delay, max_delay)
+                        print(f"Waiting for {delay} seconds before next email to mimic human pacing...")
+                        if progress_callback:
+                            progress_callback(stats, f"Waiting {delay}s before next email...")
+                        time.sleep(delay)
+                except Exception as e:
+                    print(f"Failed to send to {email}: {e}")
+                    stats['failed'] += 1
+                    contacts_df.at[index, 'Delivery Status'] = 'Failed'
                     if progress_callback:
                         progress_callback(stats, f"Failed: {email}")
                     continue
                 
-                if progress_callback:
-                    progress_callback(stats, f"Sent successfully to {email}.")
-                
-                # Check if it's the last email to avoid unnecessary delay at the end
                 if index < len(valid_df) - 1:
                     delay = random.randint(min_delay, max_delay)
                     print(f"Waiting for {delay} seconds before next email to mimic human pacing...")
