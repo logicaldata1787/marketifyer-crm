@@ -57,8 +57,8 @@ class LeadResearcher:
                     "model": "gpt-4o-mini",
                     "temperature": 0.0,
                     "messages": [
-                        {"role": "system", "content": "You are a highly constrained B2B Entity Extractor. I am providing you with the raw HTML text scraped from an event page. Your STRICT job is to identify the exact names of the exhibiting and sponsoring organizations. EXPLICITLY REJECT and IGNORE all social media platforms (Facebook, Instagram, Twitter, LinkedIn, Youtube). IGNORE navigation links, generic terms, and dates. Return ONLY a pure comma-separated string of the company names. If the text does not contain a definitive list of external companies, you MUST return literally 'NONE'."},
-                        {"role": "user", "content": combined_text[:15000]}
+                        {"role": "system", "content": "You are a highly constrained B2B Entity Extractor. I am providing you with the raw HTML text scraped from an event page. Your STRICT job is to identify the exact names of all exhibiting and sponsoring organizations. You MUST extract EVERY SINGLE COMPANY listed. DO NOT truncate or summarize. EXPLICITLY REJECT and IGNORE all social media platforms. Return ONLY a pure comma-separated string of the company names."},
+                        {"role": "user", "content": combined_text[:85000]}
                     ]
                 }
                 ai_res = requests.post(ai_url, headers=ai_headers, json=payload, timeout=15)
@@ -253,9 +253,12 @@ class LeadResearcher:
         return contacts
 
     def process_company_list(self, domains: List[str], titles: List[str], limit: int = 3, locations: List[str] = None) -> pd.DataFrame:
+        import streamlit as st
         all_contacts = []
         processed_domains = []
         for domain in domains:
+            if st.session_state.get('abort_extract', False):
+                break
             if domain not in processed_domains: # Prevent duplicates if many raw company names resolved to same domain
                 contacts = self.find_contacts(domain, titles, limit, locations)
                 all_contacts.extend(contacts)
