@@ -108,6 +108,14 @@ class OutreachManager:
                 subject = current_subject_template.replace("{{name}}", str(name)).replace("{{company}}", str(company))
                 body = current_body_template.replace("{{name}}", str(name)).replace("{{company}}", str(company))
                 
+                if "{{icebreaker}}" in body.lower():
+                    try:
+                        from src.ai_persona_agent import persona_agent
+                        ice = persona_agent.generate_icebreaker(str(name), "Executive", str(company))
+                        body = re.sub(r'\{\{icebreaker\}\}', ice, body, flags=re.IGNORECASE)
+                    except Exception as e:
+                        body = re.sub(r'\{\{icebreaker\}\}', f"Hope you've been having a great week at {company}!", body, flags=re.IGNORECASE)
+                
                 # INJECT UNSUBSCRIBE LINK (Plaintext Architecture)
                 if include_unsubscribe:
                     unsub_url = f"https://marketifyer.streamlit.app/?action=unsub&email={email}"
