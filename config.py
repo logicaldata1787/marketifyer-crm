@@ -62,10 +62,13 @@ except ImportError:
 def get_db_connection():
     try:
         import psycopg2
-        import urllib.parse
-        pwd = urllib.parse.quote_plus("Pandey@123$!")
-        conn_str = f"postgresql://postgres:{pwd}@db.ohgrvdsrwesrpjzfmbjh.supabase.co:5432/postgres"
-        conn = psycopg2.connect(conn_str)
+        conn = psycopg2.connect(
+            host="db.ohgrvdsrwesrpjzfmbjh.supabase.co",
+            port=5432,
+            dbname="postgres",
+            user="postgres",
+            password="Pandey@123$!"
+        )
         conn.autocommit = True
         return conn
     except Exception as e:
