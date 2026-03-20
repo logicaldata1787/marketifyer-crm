@@ -37,15 +37,19 @@ st.set_page_config(page_title="Marketifyer CRM", layout="wide", page_icon="⚡")
 
 st.markdown("""
 <style>
-.css-18e3th9 { padding-top: 2rem; }
-.stButton>button { border-radius: 8px; font-weight: 600; padding: 0.5rem 1rem; }
-.stButton>button[kind="primary"] { background-color: #2563eb; color: white; border: none; }
-h1, h2, h3 { font-family: 'Inter', sans-serif; font-weight: 700; color: #1e293b; }
-.st-bb { border-radius: 8px; }
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
-header {visibility: hidden;}
-.viewerBadge_container__1QSob {display: none !important;}
+/* CSS Overhaul: Instantly.io Aesthetic Minimalist Glassmorphism */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+html, body, [class*="css"] { font-family: 'Inter', sans-serif; background-color: #f4f7f6; color: #1e293b; }
+.stButton>button { border-radius: 8px; font-weight: 600; padding: 0.6rem 1.2rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: all 0.2s ease-in-out; border: 1px solid #e2e8f0; background: white; color: #1e293b; }
+.stButton>button[kind="primary"] { background-color: #2563eb; color: white; border: none; box-shadow: 0 4px 6px rgba(37,99,235,0.2); }
+.stButton>button[kind="primary"]:hover { background-color: #1d4ed8; transform: translateY(-1px); box-shadow: 0 6px 8px rgba(37,99,235,0.3); }
+.stButton>button:hover { background-color: #f8fafc; border-color: #cbd5e1; }
+h1, h2, h3 { font-family: 'Inter', sans-serif; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; }
+div[data-testid="stMetricValue"] { font-weight: 700; font-size: 2.2rem; color: #2563eb; letter-spacing: -0.03em; }
+div[data-testid="stExpander"] { background: white; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05); margin-bottom: 1rem; }
+.stTextInput>div>div>input, .stTextArea>div>div>textarea { border-radius: 8px; border: 1px solid #cbd5e1; box-shadow: inset 0 1px 2px rgba(0,0,0,0.02); }
+.stTextInput>div>div>input:focus, .stTextArea>div>div>textarea:focus { border-color: #2563eb; box-shadow: 0 0 0 1px #2563eb; }
+#MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;} .viewerBadge_container__1QSob {display: none !important;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -265,14 +269,11 @@ with tab_leads:
             st.caption("AI will aggressively scrape exactly that HTML URL structure to pull the companies.")
             
         geo_target = st.multiselect("Geo-Targeting (Global Filter)", ["United States", "United Kingdom", "Canada", "Australia", "Europe", "Asia"], default=[])
-        
-        col_L1, col_L2 = st.columns(2)
-        with col_L1:
-            limit_per_company = st.number_input("Max Leads per Company", min_value=1, max_value=20, value=3)
-        with col_L2:
-            limit_companies = st.number_input("Max Companies to Scrap", min_value=1, max_value=100, value=15)
             
         st.info("💡 To violently abort an extraction loop, click 'Stop' 🛑 in the top right corner of the screen.")
+        
+        limit_per_company = 9999
+        limit_companies = 999999
         
     with col2:
         default_titles = "sales manager, sales director, marketing manager, marketing director, business development, email marketing, digital marketing, demand generation, operations manager, product marketing, revenue operations, growth manager, lead generation, event manager, meetings manager, exhibit manager"
@@ -313,7 +314,6 @@ with tab_leads:
                 domains = [d.strip() for d in input_text.replace('\n', ',').split(',') if d.strip()]
             
             if domains:
-                domains = domains[:int(limit_companies)]
                 with st.spinner(f"AI Agent is dynamically extracting pipeline for {len(domains)} verified domains..."):
                     df = researcher.process_company_list(domains, titles, int(limit_per_company), geo_target)
                     if not df.empty:
@@ -482,45 +482,35 @@ with tab_camp:
                 st.error("Configure a Mailbox first!")
             else:
                 try:
-                    from config import supabase_client
+                    from config import get_db_connection
                     camp_id = str(uuid.uuid4())
                     
-                    with st.spinner("Flushing Pipeline into Supabase Async Queue..."):
-                        supabase_client.table("campaign_queue").insert({
-                            "id": camp_id,
-                            "owner_username": st.session_state['username'],
-                            "campaign_name": campaign_name_custom,
-                            "subject_a": subject_a,
-                            "body_a": body_a,
-                            "subject_b": subject_b if ab_test else None,
-                            "body_b": body_b if ab_test else None,
-                            "reply_to": reply_to,
-                            "min_delay": int(min_delay),
-                            "max_delay": int(max_delay),
-                            "status": "running"
-                        }).execute()
+                    with st.spinner("Flushing Pipeline into Secure Postgres Async Queue..."):
+                        conn = get_db_connection()
+                        if not conn:
+                            st.error("Fatal Postgres Error: Check DB URI Config.")
+                            raise Exception("Postgres Direct Connection Failed")
+                            
+                        cur = conn.cursor()
+                        
+                        cur.execute("INSERT INTO campaign_queue (id, owner_username, campaign_name, subject_a, body_a, subject_b, body_b, reply_to, min_delay, max_delay, status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                            (camp_id, st.session_state['username'], campaign_name_custom, subject_a, body_a, subject_b if ab_test else None, body_b if ab_test else None, reply_to, int(min_delay), int(max_delay), 'running'))
                         
                         df_targets = st.session_state['leads_df']
                         val_df = df_targets[df_targets['Email'].notna() & (df_targets['Email'] != "")]
                         
-                        queue_payloads = []
                         for i, r in val_df.iterrows():
-                            queue_payloads.append({
-                                "campaign_id": camp_id,
-                                "email": r.get('Email', ''),
-                                "name": r.get('Name', ''),
-                                "company": r.get('Company', ''),
-                                "delivery_status": "Pending"
-                            })
-                            
-                        # Bulk insert max 1000 limit
-                        supabase_client.table("campaign_contacts").insert(queue_payloads).execute()
+                            cur.execute("INSERT INTO campaign_contacts (campaign_id, email, name, company, delivery_status) VALUES (%s, %s, %s, %s, %s)",
+                                (camp_id, r.get('Email', ''), r.get('Name', ''), r.get('Company', ''), 'Pending'))
+                                
+                        cur.close()
+                        conn.close()
                         
                     st.success("✅ **Campaign mathematically queued to your Cloud Daemon Worker!**")
-                    st.info("You may now freely close your laptop, turn off your browser, or put your computer to sleep. Your VPS script (`daemon_worker.py`) will seamlessly pick this up and blast out the emails recursively 24/7.")
+                    st.info("You may now freely navigate to another tab, exit your browser, or put your computer to sleep. Your invisible worker script (`daemon_worker.py`) will automatically execute this massive batch sequence silently 24/7.")
                 except Exception as e:
-                    st.error(f"⚠️ Failed to queue! Supabase Error: {e}")
-                    st.caption("Did you run the `supabase_v4_setup.sql` script inside your Supabase SQL Editor to build the Queue tables?")
+                    st.error(f"⚠️ Failed to queue! Postgres Error: {e}")
+                    st.caption("Did you manually delete the config URI string?")
             
         if launch_sync:
             st.session_state['abort_campaign'] = False
