@@ -484,35 +484,47 @@ with tab_camp:
                 st.error("Configure a Mailbox first!")
             else:
                 try:
-                    from config import get_db_connection
+                    from src.github_storage import read_json_db, write_json_db
                     camp_id = str(uuid.uuid4())
                     
-                    with st.spinner("Flushing Pipeline into Secure Postgres Async Queue..."):
-                        conn = get_db_connection()
-                        if not conn:
-                            st.error("Fatal Postgres Error: Check DB URI Config.")
-                            raise Exception("Postgres Direct Connection Failed")
-                            
-                        cur = conn.cursor()
+                    with st.spinner("Flushing Pipeline into Secure Github Async Queue..."):
                         
-                        cur.execute("INSERT INTO campaign_queue (id, owner_username, campaign_name, subject_a, body_a, subject_b, body_b, reply_to, min_delay, max_delay, status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                            (camp_id, st.session_state['username'], campaign_name_custom, subject_a, body_a, subject_b if ab_test else None, body_b if ab_test else None, reply_to, int(min_delay), int(max_delay), 'running'))
+                        queue_data, sha = read_json_db("queue.json", default_val=[])
                         
                         df_targets = st.session_state['leads_df']
                         val_df = df_targets[df_targets['Email'].notna() & (df_targets['Email'] != "")]
                         
+                        contacts = []
                         for i, r in val_df.iterrows():
-                            cur.execute("INSERT INTO campaign_contacts (campaign_id, email, name, company, delivery_status) VALUES (%s, %s, %s, %s, %s)",
-                                (camp_id, r.get('Email', ''), r.get('Name', ''), r.get('Company', ''), 'Pending'))
-                                
-                        cur.close()
-                        conn.close()
+                            contacts.append({
+                                'id': str(uuid.uuid4()),
+                                'email': r.get('Email', ''),
+                                'name': r.get('Name', ''),
+                                'company': r.get('Company', ''),
+                                'delivery_status': 'Pending'
+                            })
+                            
+                        queue_data.append({
+                            'id': camp_id,
+                            'owner_username': st.session_state['username'],
+                            'campaign_name': campaign_name_custom,
+                            'subject_a': subject_a,
+                            'body_a': body_a,
+                            'subject_b': subject_b if ab_test else None,
+                            'body_b': body_b if ab_test else None,
+                            'reply_to': reply_to,
+                            'min_delay': int(min_delay),
+                            'max_delay': int(max_delay),
+                            'status': 'running',
+                            'contacts': contacts
+                        })
+                        
+                        write_json_db("queue.json", queue_data, sha)
                         
                     st.success("✅ **Campaign mathematically queued to your Cloud Daemon Worker!**")
                     st.info("You may now freely navigate to another tab, exit your browser, or put your computer to sleep. Your invisible worker script (`daemon_worker.py`) will automatically execute this massive batch sequence silently 24/7.")
                 except Exception as e:
-                    st.error(f"⚠️ Failed to queue! Postgres Error: {e}")
-                    st.caption("Did you manually delete the config URI string?")
+                    st.error(f"⚠️ Failed to queue! Github Storage Error: {e}")
             
         if launch_sync:
             st.session_state['abort_campaign'] = False
