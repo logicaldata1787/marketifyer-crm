@@ -6,8 +6,8 @@ import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 try:
-    from config import Config
-    GITHUB_TOKEN = Config.get_secret("GITHUB_TOKEN")
+    from config import get_secret
+    GITHUB_TOKEN = get_secret("GITHUB_TOKEN")
 except:
     GITHUB_TOKEN = None
 
