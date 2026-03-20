@@ -2,30 +2,37 @@ import json
 import os
 from typing import List, Dict
 import sys
+from psycopg2.extras import RealDictCursor
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 try:
-    from config import supabase_client
+    from config import get_db_connection
 except ImportError:
-    supabase_client = None
+    get_db_connection = None
 
 MAILBOX_FILE = "mailboxes.json"
 
 def load_mailboxes(username: str) -> List[Dict]:
-    """Load saved mailboxes owned by specific user from JSON or Supabase."""
-    if supabase_client:
+    if get_db_connection:
         try:
-            res = supabase_client.table("mailboxes").select("*").eq("owner_username", username).execute()
-            mbs = []
-            for row in res.data:
-                mbs.append({
-                    "owner": row["owner_username"],
-                    "host": row["host"],
-                    "port": str(row["port"]),
-                    "user": row["smtp_user"],
-                    "password": row["smtp_password"]
-                })
-            return mbs
+            conn = get_db_connection()
+            if conn:
+                cur = conn.cursor(cursor_factory=RealDictCursor)
+                cur.execute("SELECT * FROM mailboxes WHERE owner_username = %s", (username,))
+                rows = cur.fetchall()
+                cur.close()
+                conn.close()
+                
+                mbs = []
+                for row in rows:
+                    mbs.append({
+                        "owner": row["owner_username"],
+                        "host": row["host"],
+                        "port": str(row["port"]),
+                        "user": row["smtp_user"],
+                        "password": row["smtp_password"]
+                    })
+                return mbs
         except Exception:
             pass
 
@@ -39,23 +46,19 @@ def load_mailboxes(username: str) -> List[Dict]:
         return []
 
 def save_mailbox(username: str, host: str, port: str, user: str, password: str):
-    """Save a successfully tested mailbox specifically linking it to an owner."""
-    if supabase_client:
+    if get_db_connection:
         try:
-            res = supabase_client.table("mailboxes").select("*").eq("owner_username", username).eq("smtp_user", user).eq("host", host).execute()
-            if len(res.data) > 0:
-                supabase_client.table("mailboxes").update({
-                    "smtp_password": password,
-                    "port": int(port)
-                }).eq("id", res.data[0]["id"]).execute()
-            else:
-                supabase_client.table("mailboxes").insert({
-                    "owner_username": username,
-                    "host": host,
-                    "port": int(port),
-                    "smtp_user": user,
-                    "smtp_password": password
-                }).execute()
+            conn = get_db_connection()
+            if conn:
+                cur = conn.cursor(cursor_factory=RealDictCursor)
+                cur.execute("SELECT * FROM mailboxes WHERE owner_username = %s AND smtp_user = %s AND host = %s", (username, user, host))
+                row = cur.fetchone()
+                if row:
+                    cur.execute("UPDATE mailboxes SET smtp_password = %s, port = %s WHERE id = %s", (password, int(port), row['id']))
+                else:
+                    cur.execute("INSERT INTO mailboxes (owner_username, host, port, smtp_user, smtp_password) VALUES (%s, %s, %s, %s, %s)", (username, host, int(port), user, password))
+                cur.close()
+                conn.close()
             return
         except Exception:
             pass
@@ -89,10 +92,14 @@ def save_mailbox(username: str, host: str, port: str, user: str, password: str):
         json.dump(all_mbs, f, indent=4)
         
 def delete_mailbox(username: str, user: str, host: str):
-    """Delete a mailbox owned by user from persistent storage."""
-    if supabase_client:
+    if get_db_connection:
         try:
-            supabase_client.table("mailboxes").delete().eq("owner_username", username).eq("smtp_user", user).eq("host", host).execute()
+            conn = get_db_connection()
+            if conn:
+                cur = conn.cursor()
+                cur.execute("DELETE FROM mailboxes WHERE owner_username = %s AND smtp_user = %s AND host = %s", (username, user, host))
+                cur.close()
+                conn.close()
             return
         except: pass
 
