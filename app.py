@@ -278,7 +278,16 @@ with tab_leads:
         default_titles = "sales manager, sales director, marketing manager, marketing director, business development, email marketing, digital marketing, demand generation, operations manager, product marketing, revenue operations, growth manager, lead generation, event manager, meetings manager, exhibit manager"
         titles_input = st.text_area("Target Job Titles (comma-separated):", default_titles, height=210)
     
-    if st.button("🚀 Extract Leads Database", type="primary", use_container_width=True):
+    c_e1, c_e2 = st.columns(2)
+    with c_e1:
+        launch_extract = st.button("🚀 Extract Leads Database", type="primary", use_container_width=True)
+    with c_e2:
+        if st.button("🛑 Abort Extraction Sequence", use_container_width=True):
+            st.session_state['abort_extract'] = True
+            st.rerun()
+            
+    if launch_extract:
+        st.session_state['abort_extract'] = False
         if not input_text:
             st.error("Please provide targets to extract.")
         else:
@@ -441,7 +450,7 @@ with tab_camp:
             
         st.markdown("---")
         
-        c_t1, c_t2 = st.columns([3, 1])
+        c_t1, c_t2, c_t3 = st.columns([2, 1, 1])
         test_email_addr = c_t1.text_input("Send Test Email To:", placeholder="your_personal_email@domain.com")
         if c_t2.button("🔬 Send Test Email"):
             if not active_mailbox:
@@ -457,10 +466,64 @@ with tab_camp:
                         st.success(f"Test Email successfully delivered to {test_email_addr}")
                     else:
                         st.error("Failed to send test email. Check Mailbox diagnostics.")
+                        
+        if c_t3.button("🛑 Abort Campaign"):
+            st.session_state['abort_campaign'] = True
+            st.rerun()
         
-        st.markdown("---")
+        c_la1, c_la2 = st.columns(2)
+        with c_la1:
+            launch_sync = st.button("🚀 Launch Synchronously (Live Tracker)", type="primary", use_container_width=True)
+        with c_la2:
+            launch_async = st.button("☁️ Queue to Cloud Daemon (Close Laptop)", type="primary", use_container_width=True)
             
-        if st.button("🚀 Launch Campaign & Track", type="primary"):
+        if launch_async:
+            if not active_mailbox:
+                st.error("Configure a Mailbox first!")
+            else:
+                try:
+                    from config import supabase_client
+                    camp_id = str(uuid.uuid4())
+                    
+                    with st.spinner("Flushing Pipeline into Supabase Async Queue..."):
+                        supabase_client.table("campaign_queue").insert({
+                            "id": camp_id,
+                            "owner_username": st.session_state['username'],
+                            "campaign_name": campaign_name_custom,
+                            "subject_a": subject_a,
+                            "body_a": body_a,
+                            "subject_b": subject_b if ab_test else None,
+                            "body_b": body_b if ab_test else None,
+                            "reply_to": reply_to,
+                            "min_delay": int(min_delay),
+                            "max_delay": int(max_delay),
+                            "status": "running"
+                        }).execute()
+                        
+                        df_targets = st.session_state['leads_df']
+                        val_df = df_targets[df_targets['Email'].notna() & (df_targets['Email'] != "")]
+                        
+                        queue_payloads = []
+                        for i, r in val_df.iterrows():
+                            queue_payloads.append({
+                                "campaign_id": camp_id,
+                                "email": r.get('Email', ''),
+                                "name": r.get('Name', ''),
+                                "company": r.get('Company', ''),
+                                "delivery_status": "Pending"
+                            })
+                            
+                        # Bulk insert max 1000 limit
+                        supabase_client.table("campaign_contacts").insert(queue_payloads).execute()
+                        
+                    st.success("✅ **Campaign mathematically queued to your Cloud Daemon Worker!**")
+                    st.info("You may now freely close your laptop, turn off your browser, or put your computer to sleep. Your VPS script (`daemon_worker.py`) will seamlessly pick this up and blast out the emails recursively 24/7.")
+                except Exception as e:
+                    st.error(f"⚠️ Failed to queue! Supabase Error: {e}")
+                    st.caption("Did you run the `supabase_v4_setup.sql` script inside your Supabase SQL Editor to build the Queue tables?")
+            
+        if launch_sync:
+            st.session_state['abort_campaign'] = False
             if not active_mailbox:
                 st.error("Configure a Mailbox first!")
             else:
@@ -497,13 +560,19 @@ with tab_camp:
                     ms.metric("Sent", stc)
                     mf.metric("Failed", fld)
                     
+                def abort_listener():
+                    return st.session_state.get('abort_campaign', False)
+                    
                 campaign_uuid = str(uuid.uuid4())
                 om = OutreachManager(active_mailbox['host'], active_mailbox['port'], active_mailbox['user'], active_mailbox['password'])
                 stats = om.send_campaign(
-                    st.session_state['leads_df'], subject_a, body_a, subject_b, body_b, reply_to, int(min_delay), int(max_delay), campaign_id=campaign_uuid, include_unsubscribe=include_unsub, progress_callback=update_progress
+                    st.session_state['leads_df'], subject_a, body_a, subject_b, body_b, reply_to, int(min_delay), int(max_delay), campaign_id=campaign_uuid, include_unsubscribe=include_unsub, progress_callback=update_progress, abort_callback=abort_listener
                 )
                 
-                if stats['total'] == 0:
+                if stats.get('aborted', False):
+                    status_text.error("🛑 Sequence Aborted by User.")
+                    st.warning("Campaign forcefully interrupted. Partial sends have been permanently recorded.")
+                elif stats['total'] == 0:
                     status_text.error("Status: Aborted.")
                     st.error("⚠️ Contacts have no emails!")
                 else:
@@ -518,6 +587,11 @@ with tab_camp:
                     final_subj = f"Variant A: {subject_a} | Variant B: {subject_b}" if ab_test else subject_a
                     final_body = f"=== VARIANT A ===\n{body_a}\n\n=== VARIANT B ===\n{body_b}" if ab_test else body_a
                     save_campaign(campaign_uuid, st.session_state['username'], campaign_name_custom, final_subj, final_body, stats['total'], stats['sent'], stats['failed'], stats.get('simulated_opened', 0), stats.get('simulated_replied', 0))
+                    
+                st.divider()
+                st.subheader("Campaign Delivery Output")
+                csv_campaign = st.session_state['leads_df'].to_csv(index=False)
+                st.download_button("💾 Download Detailed Delivery Report (CSV)", data=csv_campaign, file_name=f"marketifyer_sent_{campaign_name_custom}.csv", mime="text/csv", type="primary")
 
 with tab_mbox:
     st.header("Manage Mailboxes")
