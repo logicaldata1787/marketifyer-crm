@@ -55,3 +55,19 @@ try:
         supabase_client = None
 except ImportError:
     supabase_client = None
+
+# -----------------------------------------------------
+# NATIVE RAW POSTGRES Q-BYPASS INJECTION
+# -----------------------------------------------------
+def get_db_connection():
+    try:
+        import psycopg2
+        import urllib.parse
+        pwd = urllib.parse.quote_plus("Pandey@123$!")
+        conn_str = f"postgresql://postgres:{pwd}@db.ohgrvdsrwesrpjzfmbjh.supabase.co:5432/postgres"
+        conn = psycopg2.connect(conn_str)
+        conn.autocommit = True
+        return conn
+    except Exception as e:
+        print(f"FATAL POSTGRES RAW ROUTE ERROR: {e}")
+        return None
