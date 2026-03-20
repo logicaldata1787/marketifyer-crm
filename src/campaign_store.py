@@ -3,38 +3,49 @@ import os
 from datetime import datetime
 from typing import List, Dict
 import sys
+from psycopg2.extras import RealDictCursor
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 try:
-    from config import supabase_client
+    from config import get_db_connection
 except ImportError:
-    supabase_client = None
+    get_db_connection = None
 
 CAMPAIGNS_FILE = "campaigns.json"
 
+def _format_rows(rows) -> List[Dict]:
+    camps = []
+    for row in rows:
+        raw_s = row["subject"]
+        c_subj = raw_s.split("||||")[0] if "||||" in raw_s else raw_s
+        c_body = raw_s.split("||||")[1] if "||||" in raw_s else "Copy tracking uninitialized"
+        camps.append({
+            "id": str(row["id"]),
+            "owner": row["owner_username"],
+            "date": row["date"].strftime("%Y-%m-%d %H:%M:%S") if isinstance(row["date"], datetime) else str(row["date"]),
+            "name": row["name"],
+            "subject": c_subj,
+            "body": c_body,
+            "list_size": row["total_leads"],
+            "sent": row["sent"],
+            "failed": row["failed"],
+            "delivered": row["sent"],
+            "opened": row["opened"],
+            "replied": row["replied"]
+        })
+    return camps
+
 def load_all_campaigns_admin() -> List[Dict]:
-    if supabase_client:
+    if get_db_connection:
         try:
-            res = supabase_client.table("campaigns").select("*").execute()
-            for row in res.data:
-                raw_s = row["subject"]
-                c_subj = raw_s.split("||||")[0] if "||||" in raw_s else raw_s
-                c_body = raw_s.split("||||")[1] if "||||" in raw_s else "Copy tracking uninitialized"
-                camps.append({
-                    "id": str(row["id"]),
-                    "owner": row["owner_username"],
-                    "date": row["date"],
-                    "name": row["name"],
-                    "subject": c_subj,
-                    "body": c_body,
-                    "list_size": row["total_leads"],
-                    "sent": row["sent"],
-                    "failed": row["failed"],
-                    "delivered": row["sent"],
-                    "opened": row["opened"],
-                    "replied": row["replied"]
-                })
-            return camps
+            conn = get_db_connection()
+            if conn:
+                cur = conn.cursor(cursor_factory=RealDictCursor)
+                cur.execute("SELECT * FROM campaigns ORDER BY date ASC")
+                rows = cur.fetchall()
+                cur.close()
+                conn.close()
+                return _format_rows(rows)
         except: pass
 
     if not os.path.exists(CAMPAIGNS_FILE): return []
@@ -44,28 +55,16 @@ def load_all_campaigns_admin() -> List[Dict]:
     except Exception: return []
 
 def load_campaigns(username: str) -> List[Dict]:
-    if supabase_client:
+    if get_db_connection:
         try:
-            res = supabase_client.table("campaigns").select("*").eq("owner_username", username).execute()
-            for row in res.data:
-                raw_s = row["subject"]
-                c_subj = raw_s.split("||||")[0] if "||||" in raw_s else raw_s
-                c_body = raw_s.split("||||")[1] if "||||" in raw_s else "Copy tracking uninitialized"
-                camps.append({
-                    "id": str(row["id"]),
-                    "owner": row["owner_username"],
-                    "date": row["date"],
-                    "name": row["name"],
-                    "subject": c_subj,
-                    "body": c_body,
-                    "list_size": row["total_leads"],
-                    "sent": row["sent"],
-                    "failed": row["failed"],
-                    "delivered": row["sent"],
-                    "opened": row["opened"],
-                    "replied": row["replied"]
-                })
-            return camps
+            conn = get_db_connection()
+            if conn:
+                cur = conn.cursor(cursor_factory=RealDictCursor)
+                cur.execute("SELECT * FROM campaigns WHERE owner_username = %s ORDER BY date ASC", (username,))
+                rows = cur.fetchall()
+                cur.close()
+                conn.close()
+                return _format_rows(rows)
         except: pass
 
     if not os.path.exists(CAMPAIGNS_FILE): return []
@@ -79,20 +78,15 @@ def save_campaign(campaign_id: str, username: str, campaign_name: str, subject: 
     c_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     db_subj = f"{subject}||||{body}"
     
-    if supabase_client:
+    if get_db_connection:
         try:
-            supabase_client.table("campaigns").insert({
-                "id": campaign_id,
-                "owner_username": username,
-                "name": campaign_name,
-                "subject": db_subj,
-                "date": c_date,
-                "total_leads": list_size,
-                "sent": sent,
-                "failed": failed,
-                "opened": simulated_opened,
-                "replied": simulated_replied
-            }).execute()
+            conn = get_db_connection()
+            if conn:
+                cur = conn.cursor()
+                cur.execute("INSERT INTO campaigns (id, owner_username, name, subject, date, total_leads, sent, failed, opened, replied) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                    (campaign_id, username, campaign_name, db_subj, c_date, list_size, sent, failed, simulated_opened, simulated_replied))
+                cur.close()
+                conn.close()
             return
         except Exception: pass
 
@@ -122,10 +116,15 @@ def save_campaign(campaign_id: str, username: str, campaign_name: str, subject: 
         json.dump(all_camps, f, indent=4)
 
 def delete_campaign(username: str, campaign_id: str):
-    if supabase_client:
+    if get_db_connection:
         try:
             if len(str(campaign_id)) > 20: 
-                supabase_client.table("campaigns").delete().eq("id", campaign_id).execute()
+                conn = get_db_connection()
+                if conn:
+                    cur = conn.cursor()
+                    cur.execute("DELETE FROM campaigns WHERE id = %s", (campaign_id,))
+                    cur.close()
+                    conn.close()
                 return
         except: pass
 
