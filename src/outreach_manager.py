@@ -75,18 +75,24 @@ class OutreachManager:
             return stats
 
         server = None
-        try:
-            print(f"Connecting to SMTP server {self.host}:{self.port}...")
-            if progress_callback:
-                progress_callback(stats, f"Connecting to SMTP server...")
-                
+        def _connect():
+            nonlocal server
+            if server:
+                try: server.quit()
+                except: pass
             if self.port == 465:
                 server = smtplib.SMTP_SSL(self.host, self.port)
             else:
                 server = smtplib.SMTP(self.host, self.port)
                 server.starttls()
-            
             server.login(self.user, self.password)
+
+        try:
+            print(f"Connecting to SMTP server {self.host}:{self.port}...")
+            if progress_callback:
+                progress_callback(stats, f"Connecting to SMTP server...")
+            
+            _connect()
             print("SMTP Login successful.")
             
             for index, row in valid_df.iterrows():
@@ -136,9 +142,15 @@ class OutreachManager:
                     if progress_callback:
                         progress_callback(stats, f"Sent successfully to {email}.")
                     
+                    if index > 0 and index % 50 == 0:
+                        print("TCP Socket Recycle: Re-authenticating SMTP server after 50 emails...")
+                        if progress_callback:
+                            progress_callback(stats, "Refreshing safe SMTP connection...")
+                        _connect()
+                    
                     # Check if it's the last email to avoid unnecessary delay at the end
                     if index < len(valid_df) - 1:
-                        delay = random.randint(min_delay, max_delay)
+                        delay = random.randint(60, 150)
                         print(f"Waiting for {delay} seconds before next email to mimic human pacing...")
                         if progress_callback:
                             progress_callback(stats, f"Waiting {delay}s before next email...")
@@ -152,7 +164,7 @@ class OutreachManager:
                     continue
                 
                 if index < len(valid_df) - 1:
-                    delay = random.randint(min_delay, max_delay)
+                    delay = random.randint(60, 150)
                     print(f"Waiting for {delay} seconds before next email to mimic human pacing...")
                     if progress_callback:
                         progress_callback(stats, f"Waiting {delay}s before next email...")
