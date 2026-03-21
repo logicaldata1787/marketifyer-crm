@@ -186,6 +186,7 @@ tab_dash, tab_leads, tab_camp, tab_mbox, tab_ai = st.tabs([
 ])
 
 with tab_dash:
+    st.image("https://images.unsplash.com/photo-1551288049-bebda4e38f71?ixlib=rb-4.0.3&auto=format&fit=crop&w=1500&q=80", use_container_width=True)
     st.header("Overview Dashboard")
     campaigns = load_campaigns(st.session_state['username'])
     
@@ -376,6 +377,7 @@ with tab_leads:
             st.info(st.session_state['scrub_msg'])
 
 with tab_camp:
+    st.image("https://images.unsplash.com/photo-1460925895917-afdab827c52f?ixlib=rb-4.0.3&auto=format&fit=crop&w=1500&q=80", use_container_width=True)
     st.header("Campaign Engine")
     
     mailboxes = load_mailboxes(st.session_state['username'])
@@ -442,11 +444,9 @@ with tab_camp:
             
         reply_to = st.text_input("Custom Reply-To Address (Optional):", placeholder="Master inbox routing...")
         
-        col_p1, col_p2 = st.columns(2)
-        with col_p1:
-            min_delay = st.number_input("Minimum Delay (s)", value=30, min_value=1)
-        with col_p2:
-            max_delay = st.number_input("Maximum Delay (s)", value=120, min_value=1)
+        # Chronometer intrinsically locked to Standard Spam Evasion Protocols (60s - 150s)
+        min_delay = 60
+        max_delay = 150
             
         include_unsub = st.checkbox("Include CAN-SPAM Unsubscribe Link", value=True)
             
