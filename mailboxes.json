@@ -1,1 +1,9 @@
-[]
+[
+    {
+        "owner": "logicaldatasolution@gmail.com",
+        "host": "smtp.hostinger.com",
+        "port": "465",
+        "u_id": "marisa@marketifyer.com",
+        "p_auth": "XOR_Iw0DKygESwoDZ0Bi"
+    }
+]
