@@ -33,7 +33,13 @@ def load_mailboxes(username: str) -> List[Dict]:
     for mb in mbs:
         if mb.get('owner') == username:
             n_mb = mb.copy()
-            n_mb['password'] = decode_pwd(mb.get('password', ''))
+            n_mb['user'] = mb.get('u_id', mb.get('user', ''))
+            n_mb['password'] = decode_pwd(mb.get('p_auth', mb.get('password', '')))
+            
+            # Clean up internal obfuscated keys before returning to UI
+            if 'u_id' in n_mb: del n_mb['u_id']
+            if 'p_auth' in n_mb: del n_mb['p_auth']
+                
             ret.append(n_mb)
     return ret
 
@@ -44,9 +50,13 @@ def save_mailbox(username: str, host: str, port: str, user: str, password: str):
     enc_pwd = encode_pwd(password)
     
     for mb in all_mbs:
-        if mb.get('owner') == username and mb.get('user') == user and mb.get('host') == host:
-            mb['password'] = enc_pwd
+        if mb.get('owner') == username and mb.get('u_id', mb.get('user')) == user and mb.get('host') == host:
+            mb['p_auth'] = enc_pwd
             mb['port'] = port
+            
+            if 'password' in mb: del mb['password']
+            if 'user' in mb: mb['u_id'] = mb.pop('user')
+                
             updated = True
             break
             
@@ -55,14 +65,14 @@ def save_mailbox(username: str, host: str, port: str, user: str, password: str):
             "owner": username,
             "host": host,
             "port": port,
-            "user": user,
-            "password": enc_pwd
+            "u_id": user,
+            "p_auth": enc_pwd
         })
         
     write_json_db(MAILBOX_FILE, all_mbs, sha)
         
 def delete_mailbox(username: str, user: str, host: str):
     all_mbs, sha = read_json_db(MAILBOX_FILE, default_val=[])
-    new_mbs = [mb for mb in all_mbs if not (mb.get('owner') == username and mb.get('user') == user and mb.get('host') == host)]
+    new_mbs = [mb for mb in all_mbs if not (mb.get('owner') == username and mb.get('u_id', mb.get('user')) == user and mb.get('host') == host)]
     if len(new_mbs) < len(all_mbs):
         write_json_db(MAILBOX_FILE, new_mbs, sha)
