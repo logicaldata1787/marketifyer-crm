@@ -18,7 +18,7 @@ def create_user(username: str, password: str) -> tuple[bool, str]:
     if username in users:
         return False, "Username already exists."
         
-    users[username] = {"password_hash": pw_hash}
+    users[username] = {"x_hash": pw_hash}
     write_json_db(USERS_FILE, users, sha)
     return True, "Cloud user created securely."
 
@@ -26,7 +26,7 @@ def authenticate(username: str, password: str) -> bool:
     pw_hash = _hash_pw(password)
     users, _ = read_json_db(USERS_FILE, default_val={})
     
-    if username in users and users[username]["password_hash"] == pw_hash:
+    if username in users and users[username].get("x_hash", users[username].get("password_hash")) == pw_hash:
         return True
     return False
 
