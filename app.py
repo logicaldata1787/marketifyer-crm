@@ -186,7 +186,6 @@ tab_dash, tab_leads, tab_camp, tab_mbox, tab_ai = st.tabs([
 ])
 
 with tab_dash:
-    st.image("https://images.unsplash.com/photo-1551288049-bebda4e38f71?ixlib=rb-4.0.3&auto=format&fit=crop&w=1500&q=80", use_container_width=True)
     st.header("Overview Dashboard")
     campaigns = load_campaigns(st.session_state['username'])
     
@@ -377,7 +376,6 @@ with tab_leads:
             st.info(st.session_state['scrub_msg'])
 
 with tab_camp:
-    st.image("https://images.unsplash.com/photo-1460925895917-afdab827c52f?ixlib=rb-4.0.3&auto=format&fit=crop&w=1500&q=80", use_container_width=True)
     st.header("Campaign Engine")
     
     mailboxes = load_mailboxes(st.session_state['username'])
