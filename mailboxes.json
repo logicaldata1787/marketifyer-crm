@@ -33,5 +33,12 @@
         "port": "465",
         "u_id": "carlee.jones@marketersdata.com",
         "p_auth": "XOR_NwkeOyQTcgkBZlJn"
+    },
+    {
+        "owner": "tonylewis744@gmail.com",
+        "host": "smtp.hostinger.com",
+        "port": "465",
+        "u_id": "harris@datahemisphere.com",
+        "p_auth": "XOR_NwkeOyQTcgkBZlJn"
     }
 ]
