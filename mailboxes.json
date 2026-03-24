@@ -19,5 +19,12 @@
         "port": "465",
         "u_id": "peter.jones@marketersdata.com",
         "p_auth": "XOR_NwkeOyQTcgkBZlJn"
+    },
+    {
+        "owner": "jazz4775@gmail.com",
+        "host": "smtp.hostinger.com",
+        "port": "465",
+        "u_id": "randy@datahemisphere.com",
+        "p_auth": "XOR_NwkeOyQTcgkBZlJn"
     }
 ]
