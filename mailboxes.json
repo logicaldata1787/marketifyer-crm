@@ -5,5 +5,12 @@
         "port": "465",
         "u_id": "marisa@marketifyer.com",
         "p_auth": "XOR_Iw0DKygESwoDZ0Bi"
+    },
+    {
+        "owner": "jazz4775@gmail.com",
+        "host": "smtp.hostinger.com",
+        "port": "465",
+        "u_id": "jasmine@marketifyer.com",
+        "p_auth": "XOR_NwkeOyQTcgkBZlJn"
     }
 ]
